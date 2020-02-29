@@ -36,6 +36,13 @@ executables:
     - -with-rtsopts=-N
     - -optl-mconsole 
     - -optl-mwindows
+    # profiling
+    # - -prof
+    # - -fprof-auto
+    # - -fprof-cafs
+    # - --enable-library-profiling
+    # profiling
+
     dependencies:
     - mall
     # - gloss
