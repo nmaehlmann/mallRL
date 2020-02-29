@@ -1,153 +1,85 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Main where
-
-import Control.Monad
-import Data.Word
-import Foreign.C.Types
-import SDL.Vect
-import SDL (($=))
+import Apecs
+import Linear
+import TileImage
+import Position
+import Renderer
 import qualified SDL
-import Control.Concurrent
-import Data.Array (Array, (!))
-import qualified Data.Array as Array
-import Text.Printf
-import System.CPUTime
-import System.IO
+import Data.Array
 
-screenWidth, screenHeight :: CInt
-(screenWidth, screenHeight) = (640, 360)
+newtype CPosition = CPosition Position deriving Show
+instance Component CPosition where type Storage CPosition = Map CPosition
 
-data Texture = Texture SDL.Texture (V2 CInt)
+data CPlayer = CPlayer deriving Show
+instance Component CPlayer where type Storage CPlayer = Unique CPlayer
 
-createBlank :: SDL.Renderer -> V2 CInt -> SDL.TextureAccess -> IO Texture
-createBlank r size access = Texture <$> SDL.createTexture r SDL.RGBA8888 access size <*> pure size
+data CDrawable = Drawable Glyph Color | DrawableBG Glyph Color Color
+instance Component CDrawable where type Storage CDrawable = Map CDrawable
 
-setAsRenderTarget :: SDL.Renderer -> Maybe Texture -> IO ()
-setAsRenderTarget r Nothing = SDL.rendererRenderTarget r $= Nothing
-setAsRenderTarget r (Just (Texture t _)) = SDL.rendererRenderTarget r $= Just t
+makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable]
 
-time :: IO t -> IO t
-time a = do
-    start <- getCPUTime
-    v <- a
-    end   <- getCPUTime
-    let diff = (fromIntegral (end - start)) / (10^12)
-    printf "Computation time: %0.3f sec\n" (diff :: Double)
-    return v
+type System' a = System World a
 
-loadTexture :: SDL.Renderer -> FilePath -> IO Texture
-loadTexture r filePath = do
-    surface <-  SDL.loadBMP filePath
-    size <- SDL.surfaceDimensions surface
-    t <- SDL.createTextureFromSurface r surface
-    SDL.freeSurface surface
-    return (Texture t size)
+playerGlyph :: Glyph
+playerGlyph = V2 2 0
 
-type Position = (Int, Int)
-type Glyph = (V2 CInt)
-type Color = V3 Word8
-data Tile = Tile Glyph Color Color
-    deriving (Show, Eq)
-data TileImage = TileImage (Array Position Tile)
+playerColor :: Color
+playerColor = V3 0 0 0
 
-renderTileMap :: SDL.Renderer -> Texture -> TileImage -> TileImage -> IO ()
-renderTileMap r t (TileImage previous) (TileImage arr) = mapM st (Array.range (Array.bounds arr)) >> return ()
-    where st pos = do
-            let tileOld = previous ! pos
-            let tileNew = arr ! pos
-            unless (tileOld == tileNew) $ renderTile r t pos tileNew
-    
-setTextureColor :: Texture -> Color -> IO ()
-setTextureColor (Texture t _) color = SDL.textureColorMod t $= color
+initialize :: System' ()
+initialize = do
+    playerEty <- newEntity (CPlayer, CPosition (V2 0 0), Drawable playerGlyph playerColor)
+    return ()
 
-spriteSize :: V2 CInt
-spriteSize = V2 (fromIntegral tileSize) (fromIntegral tileSize)
+step :: Float -> System' ()
+step dT = lift $ putStrLn $ "step " ++ show dT
 
-filled :: Glyph
-filled = (V2 11 13)
+handleEvent :: SDL.EventPayload -> System' ()
+handleEvent e = do
+    whenKeyPressed SDL.ScancodeRight e $ cmap (\(CPosition (V2 x y)) -> CPosition (V2 (x + 1) y))
+    whenKeyPressed SDL.ScancodeLeft e $ cmap (\(CPosition (V2 x y)) -> CPosition (V2 (x - 1) y))
+    whenKeyPressed SDL.ScancodeUp e $ cmap (\(CPosition (V2 x y)) -> CPosition (V2 x (y - 1)))
+    whenKeyPressed SDL.ScancodeDown e $ cmap (\(CPosition (V2 x y)) -> CPosition (V2 x (y + 1)))
+    return ()
 
-renderTile :: SDL.Renderer -> Texture -> Position -> Tile -> IO ()
-renderTile r t (x, y) (Tile glyph fgColor bgColor) = do
-    let point = P $ fmap (*tileSize) $ V2 (fromIntegral x) (fromIntegral y)
-    let renderGlyph g = renderTexture r t point $ Just $ SDL.Rectangle (P (fmap (*tileSize) g)) spriteSize
-    setTextureColor t bgColor
-    renderGlyph filled
-    setTextureColor t fgColor
-    renderGlyph glyph
+whenKeyPressed :: SDL.Scancode -> SDL.EventPayload -> System' () -> System' ()
+whenKeyPressed s e sys = if (isKeyPressed s e) then sys else return ()
 
-mapWidth, mapHeight, textureWidth, textureHeight :: CInt
-mapWidth = 100
-mapHeight = 20
-tileSize = 12
-textureWidth = mapWidth * tileSize
-textureHeight = mapHeight * tileSize
+draw :: System' TileImage
+draw = cfold drawDrawable testMap 
 
-testMap :: TileImage
-testMap = TileImage $ Array.listArray ((0, 0), (fromIntegral mapWidth, fromIntegral mapHeight)) $ cycle [tile1,tile2]
+drawDrawable :: TileImage -> (CPosition, CDrawable) -> TileImage
+drawDrawable (TileImage tm) ((CPosition pos, Drawable glyph color)) = 
+    let (Tile _ _ bgColor) = tm ! pos
+    in TileImage $ tm // [(pos, Tile playerGlyph color bgColor)]
+drawDrawable (TileImage tm) ((CPosition pos, DrawableBG glyph color bgColor)) = TileImage $ tm // [(pos, Tile playerGlyph color bgColor)]
 
-emptyMap :: TileImage
-emptyMap = TileImage $ Array.listArray ((0, 0), (fromIntegral mapWidth, fromIntegral mapHeight)) $ cycle [tileEmpty]
-
-tile1 :: Tile
-tile1 = Tile (V2 4 0) (V3 200 100 100) (V3 230 230 230)
-
-tile2 :: Tile
-tile2 = Tile (V2 5 1) (V3 200 100 200) (V3 130 30 30)
-
-tileEmpty :: Tile
-tileEmpty = Tile filled (V3 0 0 0) (V3 0 0 0)
-
-renderTexture :: SDL.Renderer -> Texture -> Point V2 CInt -> Maybe (SDL.Rectangle CInt) -> IO ()
-renderTexture r (Texture t size) xy clip =
-    let dstSize = maybe size (\(SDL.Rectangle _ size') -> size') clip
-    in SDL.copy r t clip (Just (SDL.Rectangle xy dstSize))
-
-setTextureBlendMode :: Texture -> SDL.BlendMode -> IO ()
-setTextureBlendMode (Texture t _) bm = SDL.textureBlendMode t $= bm
+isKeyPressed :: SDL.Scancode -> SDL.EventPayload -> Bool
+isKeyPressed scancode (SDL.KeyboardEvent e) = pressed && justPressed && rightKey
+    where 
+        pressed = SDL.keyboardEventKeyMotion e == SDL.Pressed
+        justPressed = SDL.keyboardEventRepeat e == False
+        rightKey = scancode == (SDL.keysymScancode (SDL.keyboardEventKeysym e ))
+isKeyPressed _ _ = False
 
 main :: IO ()
 main = do
-    SDL.initialize [SDL.InitVideo]
-    SDL.HintRenderScaleQuality $= SDL.ScaleLinear
-    renderQuality <- SDL.get SDL.HintRenderScaleQuality
-    when (renderQuality /= SDL.ScaleLinear) $  putStrLn "Warning: Linear texture filtering not enabled!"
+    w <- initWorld
+    runWith w $ do
+        initialize
+        wNew <- ask
+        lift $ play wNew draw handleEvent step
 
-    window <- SDL.createWindow "SDL Tutorial" SDL.defaultWindow {SDL.windowInitialSize = V2 screenWidth screenHeight}
-    SDL.showWindow window
-
-    let rendererConfig = SDL.RendererConfig { SDL.rendererType = SDL.AcceleratedVSyncRenderer, SDL.rendererTargetTexture = False}
-    renderer <- SDL.createRenderer window (-1) rendererConfig
-
-    targetTexture <- createBlank renderer (V2 textureWidth textureHeight) SDL.TextureAccessTarget
-    spriteSheetTexture <- loadTexture renderer "font.bmp"
-
-    let loop previousMap = do
-
-            -- check for quit event
-            events <- SDL.pollEvents
-            let quit = elem SDL.QuitEvent $ map SDL.eventPayload events
-
-            -- render map to texture
-            setAsRenderTarget renderer (Just targetTexture)
-            time $ renderTileMap renderer spriteSheetTexture previousMap testMap
-
-            -- render texture to screen
-            setAsRenderTarget renderer Nothing
-            SDL.rendererDrawColor renderer $= V4 maxBound maxBound maxBound maxBound
-            SDL.clear renderer
-            let renderPosition = P (V2 0 0)
-            renderTexture renderer targetTexture renderPosition Nothing
-            SDL.present renderer
-
-            -- sleep
-            -- Control.Concurrent.threadDelay 16666
-
-            --repeat
-            unless quit $ loop testMap
-
-    loop emptyMap
-
-    SDL.destroyRenderer renderer
-    SDL.destroyWindow window
-    SDL.quit
+-- newtype Screen = Screen TileImage
+-- instance Semigroup Score where (<>) = (+)
+-- instance Monoid Score where mempty = 0
+-- instance Component Score where type Storage Score = Global Score

@@ -49,6 +49,8 @@ executables:
     - sdl2
     - sdl2-image
     - array
+    - apecs
+    - linear
 
 tests:
   mall-test:
