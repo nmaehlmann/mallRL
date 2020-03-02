@@ -51,6 +51,7 @@ executables:
     - array
     - apecs
     - linear
+    - containers
 
 tests:
   mall-test:
