@@ -20,6 +20,11 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Colors
+import TileMap
+import CDrawable
+import Item
+import Apecs.Experimental.Reactive
 
 newtype CPosition = CPosition Position deriving Show
 instance Component CPosition where type Storage CPosition = Apecs.Map CPosition
@@ -27,37 +32,36 @@ instance Component CPosition where type Storage CPosition = Apecs.Map CPosition
 data CPlayer = CPlayer deriving Show
 instance Component CPlayer where type Storage CPlayer = Unique CPlayer
 
+instance Component CDrawable where type Storage CDrawable = Apecs.Map CDrawable
+
+data CItem = CItem Item
+instance Component CItem where type Storage CItem = Apecs.Map CItem
+
 data CMap = CMap (Map Position [Entity])
 instance Component CMap where type Storage CMap = Global CMap
 instance Semigroup CMap where _ <> m = m
 instance Monoid CMap where mempty = CMap Map.empty
 
-data CDrawable = Drawable Glyph Color | DrawableBG Glyph Color Color
-instance Component CDrawable where type Storage CDrawable = Apecs.Map CDrawable
-
 data CSolid = CSolid
 instance Component CSolid where type Storage CSolid = Apecs.Map CSolid
 
-makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CMap, ''CSolid]
+data CInventory = CInventory [Item]
+instance Component CInventory where type Storage CInventory = Global CInventory
+instance Semigroup CInventory where (CInventory l1) <> (CInventory l2) = CInventory $ l1 <> l2
+instance Monoid CInventory where mempty = CInventory []
+
+makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CMap, ''CSolid, ''CItem]
+
+destroyEntity :: Entity -> System' () 
+destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid))
 
 type System' a = System World a
 
-playerGlyph :: Glyph
-playerGlyph = V2 2 0
-
-playerColor :: Color
-playerColor = V3 0 0 0
-
-wallGlyph :: Glyph
-wallGlyph = V2 11 13
-
-wallColor :: Color
-wallColor = V3 0 0 0
-
 initialize :: System' ()
 initialize = do
-    newEntity (CPlayer, CPosition (V2 0 0), Drawable playerGlyph playerColor)
-    mapM (\p -> newEntity (CSolid, p, Drawable wallGlyph wallColor)) [CPosition (V2 x y) | x <- [5, 15, 25] , y <- [5..15]]
+    newEntity (CPlayer, CPosition (V2 0 0), dPlayer)
+    mapM (\p -> newEntity (CSolid, p, dWall)) [CPosition (V2 x y) | x <- [5, 15, 25] , y <- [5..15]]
+    newEntity (CItem Pizza, dPizza, CPosition (V2 4 19))
     return ()
 
 step :: Float -> System' ()
@@ -85,7 +89,7 @@ handleEvent e = do
     whenKeyPressed SDL.ScancodeDown e   $ cmapM $ \(CPlayer, CPosition p) -> move down p
 
 move :: (Position -> Position) -> Position -> System' CPosition
-move f p = moveTo p (f p)
+move direction p = moveTo p (direction p)
 
 left, right, up, down :: Position -> Position
 left (V2 x y) = V2 (x - 1) y
@@ -95,19 +99,18 @@ down (V2 x y) = V2 x (y + 1)
 
 moveTo :: Position -> Position -> System' CPosition
 moveTo source target = do
-    (CMap m) <- get global
-    let entitiesAtTarget = Map.findWithDefault [] target m
+    entitiesAtTarget <- entitiesAtPosition target
     targetBlocked <- elem True <$> mapM (\e -> exists e (Proxy :: Proxy CSolid)) entitiesAtTarget
     return $ CPosition $ if targetBlocked then source else target
 
-
--- forall w m c. Get w m c => Entity -> Proxy c -> SystemT w m Bool
--- hasTag :: forall w m c. c -> Entity -> SystemT w m Bool
--- hasTag _ e = exists e Proxy
+-- interactWith :: Entity -> System' ()
+-- interactWith e = do
 
 
--- getEntitiesForPosition :: Position -> System' (Set Entity)
--- getEntitiesForPosition p = cm
+entitiesAtPosition :: Position -> System' [Entity]
+entitiesAtPosition pos = do
+    (CMap m) <- get global
+    return $ Map.findWithDefault [] pos m
 
 whenKeyPressed :: SDL.Scancode -> SDL.EventPayload -> System' () -> System' ()
 whenKeyPressed s e sys = if (isKeyPressed s e) then sys else return ()
@@ -136,8 +139,3 @@ main = do
         initialize
         wNew <- ask
         lift $ play wNew draw handleEvent step
-
--- newtype Screen = Screen TileImage
--- instance Semigroup Score where (<>) = (+)
--- instance Monoid Score where mempty = 0
--- instance Component Score where type Storage Score = Global Score

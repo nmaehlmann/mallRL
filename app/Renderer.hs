@@ -14,9 +14,12 @@ import qualified Data.Array as Array
 import Text.Printf
 import System.CPUTime
 import System.IO
-import TileImage
 import Position
 import Apecs hiding (($=))
+
+import TileImage
+import TileMap
+import Colors
 
 screenWidth, screenHeight :: CInt
 (screenWidth, screenHeight) = (640, 360)
@@ -60,42 +63,19 @@ setTextureColor (Texture t _) color = SDL.textureColorMod t $= color
 spriteSize :: V2 CInt
 spriteSize = V2 (fromIntegral tileSize) (fromIntegral tileSize)
 
-filled :: Glyph
-filled = (V2 11 13)
-
 renderTile :: SDL.Renderer -> Texture -> Position -> Tile -> IO ()
 renderTile r t pos (Tile glyph fgColor bgColor) = do
     let point = P $ fmap (*tileSize) $ fmap fromIntegral pos
     let renderGlyph g = renderTexture r t point $ Just $ SDL.Rectangle (P (fmap (*tileSize) g)) spriteSize
     setTextureColor t bgColor
-    renderGlyph filled
+    renderGlyph filledGlyph
     setTextureColor t fgColor
     renderGlyph glyph
 
-mapWidth, mapHeight, textureWidth, textureHeight :: CInt
-mapWidth = 100
-mapHeight = 100
+tileSize, textureWidth, textureHeight :: CInt
 tileSize = 12
 textureWidth = mapWidth * tileSize
 textureHeight = mapHeight * tileSize
-
-arrayBounds :: (Position, Position)
-arrayBounds = (V2 0 0, fmap fromIntegral (V2 mapWidth mapHeight))
-
-testMap :: TileImage
-testMap = TileImage $ Array.listArray arrayBounds $ cycle [tile1,tile2]
-
-emptyMap :: TileImage
-emptyMap = TileImage $ Array.listArray arrayBounds $ cycle [tileEmpty]
-
-tile1 :: Tile
-tile1 = Tile (V2 4 0) (V3 150 100 100) (V3 255 150 255)
-
-tile2 :: Tile
-tile2 = Tile (V2 14 0) (V3 150 100 100) (V3 255 255 150)
-
-tileEmpty :: Tile
-tileEmpty = Tile filled (V3 0 0 0) (V3 0 0 0)
 
 renderTexture :: SDL.Renderer -> Texture -> Point V2 CInt -> Maybe (SDL.Rectangle CInt) -> IO ()
 renderTexture r (Texture t size) xy clip =
