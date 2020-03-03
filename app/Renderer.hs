@@ -70,7 +70,7 @@ renderTile r t pos (Tile glyph fgColor bgColor) = do
     renderGlyph glyph
 
 tileSize, textureWidth, textureHeight :: CInt
-tileSize = 12
+tileSize = 24
 textureWidth = mapWidth * tileSize
 textureHeight = mapHeight * tileSize
 
@@ -103,7 +103,7 @@ play initialWorld draw handle step = do
     renderer <- SDL.createRenderer window (-1) rendererConfig
 
     targetTexture <- createBlank renderer (V2 textureWidth textureHeight) SDL.TextureAccessTarget
-    spriteSheetTexture <- loadTexture renderer "font.bmp"
+    spriteSheetTexture <- loadTexture renderer "font24.bmp"
 
     let loop world previousImage = do
 

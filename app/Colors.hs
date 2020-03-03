@@ -20,6 +20,17 @@ dWall = Drawable wallGlyph wallColor
 wallGlyph = V2 11 13
 wallColor = white
 
+dShelf = DrawableBG shelfGlyph shelfFGColor shelfBGColor
+shelfGlyph = V2 1 11
+shelfFGColor = white
+shelfBGColor = V3 158 158 158
+
+dShelfNorth = Drawable shelfNorthGlyph white
+shelfNorthGlyph = V2 12 13
+
+dShelfSouth = Drawable shelfSouthGlyph white
+shelfSouthGlyph = V2 15 13
+
 filledGlyph = V2 11 13
 
 black = V3 0 0 0

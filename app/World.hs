@@ -42,9 +42,9 @@ instance Component CInventory where type Storage CInventory = Global CInventory
 instance Semigroup CInventory where (CInventory l1) <> (CInventory l2) = CInventory $ l1 <> l2
 instance Monoid CInventory where mempty = CInventory []
 
-data CInteraction = CInteraction Entity deriving (Eq, Show)
-instance Component CInteraction where type Storage CInteraction = Apecs.Map CInteraction
+makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem]
 
-makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInteraction]
+destroyEntity :: Entity -> System' () 
+destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid, CItem))
 
 type System' a = System World a

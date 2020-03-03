@@ -23,25 +23,41 @@ import Item
 import Apecs.Experimental.Reactive
 import Control.Monad
 import World
+import Interaction
 
-
-destroyEntity :: Entity -> System' () 
-destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid))
 
 initialize :: System' ()
 initialize = do
     newEntity (CPlayer, CPosition (V2 0 0), dPlayer)
-    mapM (\p -> newEntity (CSolid, p, dWall)) [CPosition (V2 x y) | x <- [5, 15, 25] , y <- [5..15]]
-    newEntity (CItem Pizza, dPizza, CPosition (V2 4 6))
-    newEntity (CItem Seaweed, dSeaweed, CPosition (V2 4 7))
-    newEntity (CItem Seaweed, dSeaweed, CPosition (V2 4 8))
+    mkShelf 5 5 7 Seaweed Pizza
+    mkShelf 11 5 7 Bananas Pizza
+    mkShelf 17 5 7 Fishsticks Fishsticks
     return ()
 
+mkShelf :: Int -> Int -> Int -> Item -> Item -> System' ()
+mkShelf x y l leftItem rightItem = do
+    flip mapM_ [V2 x ys | ys <- [y + 1 .. y + l - 2] ] $ \p -> do
+        -- shelf middle
+        newEntity (CSolid, CPosition p, dWall)
+        
+        -- shelf left
+        newEntity (CSolid, CPosition (left p), dShelf)
+        newEntity (CItem leftItem, CPosition (left p), lookupItemDrawable leftItem)
+        
+        -- shelf right
+        newEntity (CSolid, CPosition (right p), dShelf)
+        newEntity (CItem leftItem, CPosition (right p), lookupItemDrawable rightItem)
+
+    flip mapM_ [V2 xs y | xs <- [x - 1 .. x + 1] ] $ \p -> do
+        -- shelf north bound
+        newEntity (CSolid, CPosition p, dShelfNorth)
+
+    flip mapM_ [V2 xs (y + l - 1) | xs <- [x - 1 .. x + 1] ] $ \p -> do
+        -- shelf south bound
+        newEntity (CSolid, CPosition p, dShelfSouth)
+
 step :: Float -> System' ()
-step dT = do
-    pickupItems
-    destroyInteractions
-    lift $ putStrLn $ "step " ++ show dT
+step dT = lift $ putStrLn $ "step " ++ show dT
 
 handleEvent :: SDL.EventPayload -> System' ()
 handleEvent e = do
@@ -62,29 +78,13 @@ down (V2 x y) = V2 x (y + 1)
 moveTo :: Position -> Position -> Entity -> System' CPosition
 moveTo source target movingEntity = do
     entitiesAtTarget <- entitiesAtPosition target
-    mapM (markInteraction movingEntity) entitiesAtTarget
+    mapM (pickupItem movingEntity) entitiesAtTarget
     targetBlocked <- elem True <$> mapM (\e -> exists e (Proxy :: Proxy CSolid)) entitiesAtTarget
     return $ CPosition $ if targetBlocked then source else target
 
-pickupItems :: System' ()
-pickupItems = do
-    cmapM_ $ \(CPlayer, i1) ->
-        cmapM_ $ \(CItem i, i2, itemEntity) -> do
-            lift $ putStrLn $ show i1
-            lift $ putStrLn $ show i2
-            when (sameInteraction i1 i2) $ do
-                destroyEntity itemEntity
-
-destroyInteractions :: System' ()
-destroyInteractions = cmap $ \(CInteraction i) -> Nothing :: Maybe CInteraction
-
-sameInteraction :: (CInteraction, Entity) -> (CInteraction, Entity) -> Bool
-sameInteraction (CInteraction iE1, e1) (CInteraction iE2, e2) = iE1 == e2 && iE2 == e1
-
-markInteraction :: Entity -> Entity -> System' ()
-markInteraction e1 e2 = do
-    e1 $= CInteraction e2
-    e2 $= CInteraction e1
+pickupItem :: Entity -> Entity -> System' ()
+pickupItem playerEntity itemEntity = interaction playerEntity itemEntity $
+    \(CPlayer) (CItem i) -> destroyEntity itemEntity
 
 entitiesAtPosition :: Position -> System' [Entity]
 entitiesAtPosition pos = withReactive $ ixLookup (CPosition pos)
