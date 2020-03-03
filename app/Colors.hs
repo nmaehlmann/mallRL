@@ -9,8 +9,8 @@ ground1 = Tile groundGlyph1 groundFGColor groundBGColor
 ground2 = Tile groundGlyph1 groundFGColor groundBGColor
 groundGlyph1 = V2 14 15
 groundGlyph2 = V2 4 0
-groundBGColor = V3 255 140 103
 groundFGColor = V3 255 178 102
+groundBGColor = V3 255 140 103
 
 dPlayer = Drawable playerGlyph playerColor
 playerGlyph = V2 0 4
@@ -19,6 +19,10 @@ playerColor = white
 dWall = Drawable wallGlyph wallColor
 wallGlyph = V2 11 13
 wallColor = white
+
+dShoppingCart = Drawable shoppingCartGlyph shoppingCartColor
+shoppingCartGlyph = V2 3 2
+shoppingCartColor = white
 
 dShelf = DrawableBG shelfGlyph shelfFGColor shelfBGColor
 shelfGlyph = V2 1 11

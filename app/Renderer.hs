@@ -13,13 +13,14 @@ import Text.Printf
 import System.CPUTime
 import Position
 import Apecs hiding (($=))
+import Control.Concurrent
 
 import TileImage
 import TileMap
 import Colors
 
 screenWidth, screenHeight :: CInt
-(screenWidth, screenHeight) = (640, 360)
+(screenWidth, screenHeight) = (mapWidth * tileSize, mapHeight * tileSize)
 
 data Texture = Texture SDL.Texture (V2 CInt)
 
@@ -36,7 +37,7 @@ time a = do
     v <- a
     end   <- getCPUTime
     let diff = (fromIntegral (end - start)) / (10^12)
-    printf "Computation time: %0.3f sec\n" (diff :: Double)
+    -- printf "Computation time: %0.3f sec\n" (diff :: Double)
     return v
 
 loadTexture :: SDL.Renderer -> FilePath -> IO Texture
@@ -48,11 +49,13 @@ loadTexture r filePath = do
     return (Texture t size)
 
 renderTileMap :: SDL.Renderer -> Texture -> TileImage -> TileImage -> IO ()
-renderTileMap r t (TileImage previous) (TileImage arr) = mapM st (Array.range (Array.bounds arr)) >> return ()
+renderTileMap r t (TileImage previous) (TileImage arr) = unless (previous == arr) $ mapM st (Array.range (Array.bounds arr)) >> return ()
     where st pos = do
             let tileOld = previous ! pos
             let tileNew = arr ! pos
-            unless (tileOld == tileNew) $ renderTile r t pos tileNew
+            unless (tileOld == tileNew) $ do
+                putStrLn $ "rerender " ++ show pos
+                renderTile r t pos tileNew
     
 setTextureColor :: Texture -> Color -> IO ()
 setTextureColor (Texture t _) color = SDL.textureColorMod t $= color
@@ -112,15 +115,19 @@ play initialWorld draw handle step = do
             let eventPayloads = map SDL.eventPayload events
             let quit = elem SDL.QuitEvent $ eventPayloads
             let handle' w evt = runWith w $ handle evt >> ask
-            worldAfterEvents <- foldM handle' world eventPayloads
+            -- putStrLn "handle events"
+            worldAfterEvents <- time $ foldM handle' world eventPayloads
 
             -- step world
             let t = 0.1
-            worldAfterStepping <- runWith worldAfterEvents $ step t >> ask
+            -- putStrLn "step"
+            worldAfterStepping <- time $ runWith worldAfterEvents $ step t >> ask
 
             -- render map to texture
-            tileImage <- runWith worldAfterStepping draw
+            -- putStrLn "draw"
+            tileImage <- time $ runWith worldAfterStepping draw
             setAsRenderTarget renderer (Just targetTexture)
+            -- putStrLn "render"
             time $ renderTileMap renderer spriteSheetTexture previousImage tileImage
 
             -- render texture to screen
@@ -132,7 +139,7 @@ play initialWorld draw handle step = do
             SDL.present renderer
 
             -- sleep
-            -- Control.Concurrent.threadDelay 16666
+            Control.Concurrent.threadDelay 33333
 
             --repeat
             unless quit $ loop worldAfterStepping tileImage

@@ -28,11 +28,19 @@ import Interaction
 
 initialize :: System' ()
 initialize = do
-    newEntity (CPlayer, CPosition (V2 0 0), dPlayer)
+    mkBorder
+    newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CInventory [])
+    newEntity (CShoppingCart, CPosition (V2 2 2), dShoppingCart)
     mkShelf 5 5 7 Seaweed Pizza
     mkShelf 11 5 7 Bananas Pizza
     mkShelf 17 5 7 Fishsticks Fishsticks
     return ()
+
+mkBorder :: System' ()
+mkBorder = do
+    let allPositions = [V2 x y | x <- [0..mapWidth - 1], y <- [0..mapHeight - 1]]
+    let edgePositions = map (\(V2 x y) -> V2 (fromIntegral x) (fromIntegral y)) $ filter (\(V2 x y) -> x == 0 || y == 0 || x == mapWidth - 1 || y == mapHeight - 1) allPositions
+    flip mapM_ edgePositions $ \p -> newEntity (CSolid, CPosition p, dWall)
 
 mkShelf :: Int -> Int -> Int -> Item -> Item -> System' ()
 mkShelf x y l leftItem rightItem = do
@@ -56,15 +64,35 @@ mkShelf x y l leftItem rightItem = do
         -- shelf south bound
         newEntity (CSolid, CPosition p, dShelfSouth)
 
+stepDuration = 0.6
+
 step :: Float -> System' ()
-step dT = lift $ putStrLn $ "step " ++ show dT
+step dT = do
+    (CTime t) <- get global
+    let newTime = t + dT
+    let stepDone = stepDuration <= newTime
+    if stepDone
+        then set global $ CTime $ newTime - stepDuration
+        else set global $ CTime newTime
+    when stepDone $ do
+        cmapM moveDirection
+        cmapM_ $ \(CPlayer, CPosition pPlayer, CDirection d) -> cmap $ \(CShoppingCart, CPosition pCart) -> CPosition $ (dirToFun d) pPlayer
+
+moveDirection :: (CDirection, CPosition, Entity) -> System' CPosition
+moveDirection (CDirection d, (CPosition p), e) = move (dirToFun d) p e
+
+dirToFun :: Direction -> (Position -> Position)
+dirToFun DirLeft = left
+dirToFun DirRight = right
+dirToFun DirUp = up
+dirToFun DirDown = down
 
 handleEvent :: SDL.EventPayload -> System' ()
 handleEvent e = do
-    whenKeyPressed SDL.ScancodeRight e  $ cmapM $ \(CPlayer, CPosition p, e) -> move right p e
-    whenKeyPressed SDL.ScancodeLeft e   $ cmapM $ \(CPlayer, CPosition p, e) -> move left p e
-    whenKeyPressed SDL.ScancodeUp e     $ cmapM $ \(CPlayer, CPosition p, e) -> move up p e
-    whenKeyPressed SDL.ScancodeDown e   $ cmapM $ \(CPlayer, CPosition p, e) -> move down p e
+    whenKeyPressed SDL.ScancodeRight e  $ cmap $ \CPlayer -> CDirection DirRight
+    whenKeyPressed SDL.ScancodeLeft e   $ cmap $ \CPlayer -> CDirection DirLeft
+    whenKeyPressed SDL.ScancodeUp e     $ cmap $ \CPlayer -> CDirection DirUp
+    whenKeyPressed SDL.ScancodeDown e   $ cmap $ \CPlayer -> CDirection DirDown
 
 move :: (Position -> Position) -> Position -> Entity -> System' CPosition
 move direction p e = moveTo p (direction p) e
@@ -84,7 +112,9 @@ moveTo source target movingEntity = do
 
 pickupItem :: Entity -> Entity -> System' ()
 pickupItem playerEntity itemEntity = interaction playerEntity itemEntity $
-    \(CPlayer) (CItem i) -> destroyEntity itemEntity
+    \(CPlayer) (CItem i) -> do
+        modify playerEntity $ \(CInventory items) -> CInventory $ i : items
+        destroyEntity itemEntity
 
 entitiesAtPosition :: Position -> System' [Entity]
 entitiesAtPosition pos = withReactive $ ixLookup (CPosition pos)
@@ -93,7 +123,7 @@ whenKeyPressed :: SDL.Scancode -> SDL.EventPayload -> System' () -> System' ()
 whenKeyPressed s e sys = if (isKeyPressed s e) then sys else return ()
 
 draw :: System' TileImage
-draw = cfold drawDrawable testMap 
+draw = cfold drawDrawable testMap
 
 drawDrawable :: TileImage -> (CPosition, CDrawable) -> TileImage
 drawDrawable (TileImage tm) ((CPosition pos, Drawable glyph color)) = 
