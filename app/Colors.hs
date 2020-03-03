@@ -2,7 +2,6 @@ module Colors where
 import TileImage
 import Linear
 import CDrawable
-import Linear
 
 tileEmpty = Tile filledGlyph black black
 

@@ -3,17 +3,14 @@
 module Renderer where
 
 import Control.Monad
-import Data.Word
 import Foreign.C.Types
 import SDL.Vect
 import SDL (($=))
 import qualified SDL
-import Control.Concurrent
-import Data.Array (Array, (!))
+import Data.Array ((!))
 import qualified Data.Array as Array
 import Text.Printf
 import System.CPUTime
-import System.IO
 import Position
 import Apecs hiding (($=))
 
