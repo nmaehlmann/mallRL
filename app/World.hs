@@ -40,22 +40,22 @@ instance Component CSolid where type Storage CSolid = Apecs.Map CSolid
 data CInventory = CInventory [Item]
 instance Component CInventory where type Storage CInventory = Apecs.Map CInventory
 
-data CDirection = CDirection Direction
-instance Component CDirection where type Storage CDirection = Apecs.Map CDirection
+newtype CActions = CActions [Action]
+    deriving (Monoid, Semigroup) via ([Action])
+instance Component CActions where type Storage CActions = Apecs.Global CActions
+
+data Action = Move Direction
 
 data Direction = DirUp | DirDown | DirLeft | DirRight
-
-data CShoppingCart = CShoppingCart
-instance Component CShoppingCart where type Storage CShoppingCart = Unique CShoppingCart
 
 data CTime = CTime Float
 instance Component CTime where type Storage CTime = Apecs.Global CTime
 instance Semigroup CTime where (CTime t1) <> (CTime t2) = CTime (t1 + t2)
 instance Monoid CTime where mempty = CTime 0
 
-makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CDirection, ''CTime, ''CShoppingCart]
+makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CTime, ''CActions]
 
 destroyEntity :: Entity -> System' () 
-destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory, CDirection))
+destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory))
 
 type System' a = System World a

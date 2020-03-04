@@ -30,7 +30,6 @@ initialize :: System' ()
 initialize = do
     mkBorder
     newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CInventory [])
-    newEntity (CShoppingCart, CPosition (V2 2 2), dShoppingCart)
     mkShelf 5 5 7 Seaweed Pizza
     mkShelf 11 5 7 Bananas Pizza
     mkShelf 17 5 7 Fishsticks Fishsticks
@@ -68,18 +67,42 @@ stepDuration = 0.6
 
 step :: Float -> System' ()
 step dT = do
+    handleActions
+    stepTime dT
+
+handleActions :: System' ()
+handleActions = do
+    action <- pollAction
+    case action of
+        (Just a) -> handleAction a >> turn
+        Nothing -> return ()
+
+handleAction :: Action -> System' ()
+handleAction (Move d) = cmapM (movePlayer d)
+
+turn :: System' ()
+turn = return ()
+
+pollAction :: System' (Maybe Action)
+pollAction = do
+    actions <- get global
+    case actions of
+        (CActions []) -> return Nothing
+        (CActions (a:as)) -> do
+            set global $ CActions as 
+            return $ Just a
+
+stepTime :: Float -> System' ()
+stepTime dT = do
     (CTime t) <- get global
     let newTime = t + dT
     let stepDone = stepDuration <= newTime
     if stepDone
         then set global $ CTime $ newTime - stepDuration
         else set global $ CTime newTime
-    when stepDone $ do
-        cmapM moveDirection
-        cmapM_ $ \(CPlayer, CPosition pPlayer, CDirection d) -> cmap $ \(CShoppingCart, CPosition pCart) -> CPosition $ (dirToFun d) pPlayer
 
-moveDirection :: (CDirection, CPosition, Entity) -> System' CPosition
-moveDirection (CDirection d, (CPosition p), e) = move (dirToFun d) p e
+movePlayer :: Direction -> (CPlayer, CPosition, Entity) -> System' CPosition
+movePlayer d (_, (CPosition p), e) = move (dirToFun d) p e
 
 dirToFun :: Direction -> (Position -> Position)
 dirToFun DirLeft = left
@@ -89,10 +112,13 @@ dirToFun DirDown = down
 
 handleEvent :: SDL.EventPayload -> System' ()
 handleEvent e = do
-    whenKeyPressed SDL.ScancodeRight e  $ cmap $ \CPlayer -> CDirection DirRight
-    whenKeyPressed SDL.ScancodeLeft e   $ cmap $ \CPlayer -> CDirection DirLeft
-    whenKeyPressed SDL.ScancodeUp e     $ cmap $ \CPlayer -> CDirection DirUp
-    whenKeyPressed SDL.ScancodeDown e   $ cmap $ \CPlayer -> CDirection DirDown
+    whenKeyPressed SDL.ScancodeRight e  $ modify global $ appendAction $ Move DirRight
+    whenKeyPressed SDL.ScancodeLeft e   $ modify global $ appendAction $ Move DirLeft
+    whenKeyPressed SDL.ScancodeUp e     $ modify global $ appendAction $ Move DirUp
+    whenKeyPressed SDL.ScancodeDown e   $ modify global $ appendAction $ Move DirDown
+
+appendAction :: Action -> CActions -> CActions
+appendAction a (CActions as) = CActions $ as ++ [a]
 
 move :: (Position -> Position) -> Position -> Entity -> System' CPosition
 move direction p e = moveTo p (direction p) e

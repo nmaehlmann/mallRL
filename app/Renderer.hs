@@ -54,7 +54,7 @@ renderTileMap r t (TileImage previous) (TileImage arr) = unless (previous == arr
             let tileOld = previous ! pos
             let tileNew = arr ! pos
             unless (tileOld == tileNew) $ do
-                putStrLn $ "rerender " ++ show pos
+                -- putStrLn $ "rerender " ++ show pos
                 renderTile r t pos tileNew
     
 setTextureColor :: Texture -> Color -> IO ()
