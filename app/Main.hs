@@ -24,12 +24,15 @@ import Apecs.Experimental.Reactive
 import Control.Monad
 import World
 import Interaction
+import Data.HashSet (HashSet)
+import qualified Data.HashSet as HashSet
 
 
 initialize :: System' ()
 initialize = do
     mkBorder
     newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CInventory [])
+    newEntity (CBehaviour (Buy Pizza), CPosition (V2 2 1), Drawable (charToGlyph 'K') black, CSolid)
     mkShelf 5 5 7 Seaweed Pizza
     mkShelf 11 5 7 Bananas Pizza
     mkShelf 17 5 7 Fishsticks Fishsticks
@@ -172,3 +175,14 @@ main = do
         initialize
         wNew <- ask
         lift $ play wNew draw handleEvent step
+
+pathToItem :: Position -> Item -> System' (Maybe [Position])
+pathToItem currentPosition item = do
+    itemPositions <- cfold (\l (CItem i, CPosition p) -> if item == i then (p:l) else l) []
+    case itemPositions of
+        [] -> return Nothing
+        (p:_) -> return Nothing
+
+neighbours :: Position -> System' (HashSet Position) 
+neighbours p = return HashSet.empty
+            

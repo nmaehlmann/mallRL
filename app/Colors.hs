@@ -2,6 +2,7 @@ module Colors where
 import TileImage
 import Linear
 import CDrawable
+import Data.Char (ord)
 
 tileEmpty = Tile filledGlyph black black
 
@@ -13,7 +14,7 @@ groundFGColor = V3 255 178 102
 groundBGColor = V3 255 140 103
 
 dPlayer = Drawable playerGlyph playerColor
-playerGlyph = V2 0 4
+playerGlyph = charToGlyph '@'
 playerColor = white
 
 dWall = Drawable wallGlyph wallColor
@@ -40,3 +41,9 @@ filledGlyph = V2 11 13
 black = V3 0 0 0
 white = V3 255 255 255
 
+charToGlyph :: Char -> Glyph
+charToGlyph c = 
+    let oc = ord c
+        x = oc `mod` 16
+        y = oc `div` 16
+    in  V2 (fromIntegral x)  (fromIntegral y)

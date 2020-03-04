@@ -44,6 +44,14 @@ newtype CActions = CActions [Action]
     deriving (Monoid, Semigroup) via ([Action])
 instance Component CActions where type Storage CActions = Apecs.Global CActions
 
+data CShoppingList = CShoppingList [Item]
+instance Component CShoppingList where type Storage CShoppingList = Apecs.Map CShoppingList
+
+data Behaviour = Buy Item
+
+data CBehaviour = CBehaviour Behaviour
+instance Component CBehaviour where type Storage CBehaviour = Apecs.Map CBehaviour
+
 data Action = Move Direction
 
 data Direction = DirUp | DirDown | DirLeft | DirRight
@@ -53,9 +61,9 @@ instance Component CTime where type Storage CTime = Apecs.Global CTime
 instance Semigroup CTime where (CTime t1) <> (CTime t2) = CTime (t1 + t2)
 instance Monoid CTime where mempty = CTime 0
 
-makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CTime, ''CActions]
+makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CTime, ''CActions, ''CBehaviour]
 
 destroyEntity :: Entity -> System' () 
-destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory))
+destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory, CBehaviour))
 
 type System' a = System World a

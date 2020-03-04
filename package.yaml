@@ -52,6 +52,8 @@ executables:
     - apecs
     - linear
     - containers
+    - astar
+    - unordered-containers
 
 tests:
   mall-test:
