@@ -17,6 +17,7 @@ import Data.Array
 import CDrawable
 import Item
 import Apecs.Experimental.Reactive
+import TerminalText
 
 newtype CPosition = CPosition Position 
     deriving (Show, Eq, Ord)
@@ -49,21 +50,28 @@ instance Component CShoppingList where type Storage CShoppingList = Apecs.Map CS
 
 data Behaviour = Buy Item
 
-data CBehaviour = CBehaviour Behaviour
+newtype CBehaviour = CBehaviour Behaviour
 instance Component CBehaviour where type Storage CBehaviour = Apecs.Map CBehaviour
 
 data Action = Move Direction
 
 data Direction = DirUp | DirDown | DirLeft | DirRight
 
-data CTime = CTime Float
+newtype CLog = CLog [TerminalText]
+    deriving (Monoid, Semigroup) via ([TerminalText])
+instance Component CLog where type Storage CLog = Apecs.Global CLog
+
+newtype CTime = CTime Float
 instance Component CTime where type Storage CTime = Apecs.Global CTime
 instance Semigroup CTime where (CTime t1) <> (CTime t2) = CTime (t1 + t2)
 instance Monoid CTime where mempty = CTime 0
 
-makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CTime, ''CActions, ''CBehaviour]
+newtype CName = CName String
+instance Component CName where type Storage CName = Apecs.Map CName
+
+makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CTime, ''CActions, ''CBehaviour, ''CLog, ''CName]
 
 destroyEntity :: Entity -> System' () 
-destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory, CBehaviour))
+destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory, CBehaviour, CName))
 
 type System' a = System World a

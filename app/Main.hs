@@ -26,13 +26,15 @@ import World
 import Interaction
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
-
+import Data.Graph.AStar
+import TerminalText
 
 initialize :: System' ()
 initialize = do
     mkBorder
-    newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CInventory [])
-    newEntity (CBehaviour (Buy Pizza), CPosition (V2 2 1), Drawable (charToGlyph 'K') black, CSolid)
+    newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CSolid, CInventory [], CName "You")
+    newEntity (CBehaviour (Buy Seaweed), CPosition (V2 2 1), Drawable (charToGlyph 'K') black, CSolid, CInventory [], CName "Kunibert")
+    newEntity (CBehaviour (Buy Pizza), CPosition (V2 3 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CName "Jens")
     mkShelf 5 5 7 Seaweed Pizza
     mkShelf 11 5 7 Bananas Pizza
     mkShelf 17 5 7 Fishsticks Fishsticks
@@ -56,7 +58,7 @@ mkShelf x y l leftItem rightItem = do
         
         -- shelf right
         newEntity (CSolid, CPosition (right p), dShelf)
-        newEntity (CItem leftItem, CPosition (right p), lookupItemDrawable rightItem)
+        newEntity (CItem rightItem, CPosition (right p), lookupItemDrawable rightItem)
 
     flip mapM_ [V2 xs y | xs <- [x - 1 .. x + 1] ] $ \p -> do
         -- shelf north bound
@@ -84,7 +86,13 @@ handleAction :: Action -> System' ()
 handleAction (Move d) = cmapM (movePlayer d)
 
 turn :: System' ()
-turn = return ()
+turn = do
+    cmapM $ \ (CPosition position, CBehaviour (Buy item), e) -> do
+        path <- pathToItem position item
+        case path of
+            (Just (nextPosition : _)) -> moveTo position nextPosition e
+            _ -> return $ CPosition position
+        
 
 pollAction :: System' (Maybe Action)
 pollAction = do
@@ -136,13 +144,17 @@ moveTo :: Position -> Position -> Entity -> System' CPosition
 moveTo source target movingEntity = do
     entitiesAtTarget <- entitiesAtPosition target
     mapM (pickupItem movingEntity) entitiesAtTarget
-    targetBlocked <- elem True <$> mapM (\e -> exists e (Proxy :: Proxy CSolid)) entitiesAtTarget
+    targetBlocked <- containsSolidEntity entitiesAtTarget
     return $ CPosition $ if targetBlocked then source else target
+
+containsSolidEntity :: [Entity] -> System' Bool
+containsSolidEntity es = elem True <$> mapM (\e -> exists e (Proxy :: Proxy CSolid)) es
 
 pickupItem :: Entity -> Entity -> System' ()
 pickupItem playerEntity itemEntity = interaction playerEntity itemEntity $
-    \(CPlayer) (CItem i) -> do
+    \(CInventory _, CName name) (CItem i) -> do
         modify playerEntity $ \(CInventory items) -> CInventory $ i : items
+        logTxt $ (FGText name (V3 255 255 0)) <> (FGText " picked up " white) <> (FGText (show i) (V3 255 0 0))
         destroyEntity itemEntity
 
 entitiesAtPosition :: Position -> System' [Entity]
@@ -152,13 +164,10 @@ whenKeyPressed :: SDL.Scancode -> SDL.EventPayload -> System' () -> System' ()
 whenKeyPressed s e sys = if (isKeyPressed s e) then sys else return ()
 
 draw :: System' TileImage
-draw = cfold drawDrawable testMap
+draw = cfold cDrawDrawable testMap >>= drawLog
 
-drawDrawable :: TileImage -> (CPosition, CDrawable) -> TileImage
-drawDrawable (TileImage tm) ((CPosition pos, Drawable glyph color)) = 
-    let (Tile _ _ bgColor) = tm ! pos
-    in TileImage $ tm // [(pos, Tile glyph color bgColor)]
-drawDrawable (TileImage tm) ((CPosition pos, DrawableBG glyph color bgColor)) = TileImage $ tm // [(pos, Tile glyph color bgColor)]
+cDrawDrawable :: TileImage -> (CPosition, CDrawable) -> TileImage
+cDrawDrawable tm (CPosition pos, drawable) = drawDrawable tm (pos, drawable)
 
 isKeyPressed :: SDL.Scancode -> SDL.EventPayload -> Bool
 isKeyPressed scancode (SDL.KeyboardEvent e) = pressed && justPressed && rightKey
@@ -178,11 +187,57 @@ main = do
 
 pathToItem :: Position -> Item -> System' (Maybe [Position])
 pathToItem currentPosition item = do
-    itemPositions <- cfold (\l (CItem i, CPosition p) -> if item == i then (p:l) else l) []
+    itemPositions <- flip cfold [] $ \l (CItem i, CPosition p) -> if item == i 
+            then p:l
+            else l
     case itemPositions of
         [] -> return Nothing
-        (p:_) -> return Nothing
+        (goal : _) -> do
+            aStarM 
+                (neighbours goal)
+                distanceBetweenNeighbours
+                (heuristicDistanceToGoal goal)
+                (\p -> return (p == goal))
+                (return currentPosition)
 
-neighbours :: Position -> System' (HashSet Position) 
-neighbours p = return HashSet.empty
-            
+neighbours :: Position -> Position -> System' (HashSet Position) 
+neighbours goal p = do
+    ps <- mapM (filterFreePosition goal) $ [left, right, up, down] <*> [p]
+    return $ HashSet.unions ps
+
+distanceBetweenNeighbours :: Position -> Position -> System' Float
+distanceBetweenNeighbours _ _ = return 1
+
+heuristicDistanceToGoal :: Position -> Position -> System' Float
+heuristicDistanceToGoal goal p = return $ distance (fmap (fromIntegral) goal) (fmap (fromIntegral) p)
+
+filterFreePosition :: Position -> Position -> System' (HashSet Position) 
+filterFreePosition goal target = if goal == target 
+    then return $ HashSet.singleton target
+    else do
+        entitiesAtTarget <- entitiesAtPosition target
+        targetBlocked <- containsSolidEntity entitiesAtTarget
+        return $ if targetBlocked then HashSet.empty else HashSet.singleton target
+
+logSize :: Int
+logSize = 4
+
+leftPad :: Int -> a -> [a] -> [a]
+leftPad m x xs = replicate (m - length xs) x ++ xs
+
+logTxt :: TerminalText -> System' ()
+logTxt txt = modify global $ \(CLog txts) -> CLog $ txt : txts
+
+drawLog :: TileImage -> System' TileImage
+drawLog (TileImage arr) = do
+    let yMax = fromIntegral (mapHeight - 1)
+    let xMax = fromIntegral (mapWidth - 1)
+    let bg = [((V2 x y), tileEmpty) | x <- [0..xMax], y <- [(yMax - logSize + 1)..(yMax)]]
+    let tm = TileImage $ arr // bg
+    (CLog txts) <- get global
+    let paddedTxts = take logSize $ leftPad logSize (FGText "" black) txts
+    let logPositions = [(V2 0 y) | y <- (decrease yMax)]
+    return $ foldl (\tm (pos, txt) -> drawText pos txt tm) tm $ zip logPositions paddedTxts
+
+decrease :: Int -> [Int]
+decrease i = i : (decrease (i - 1))
