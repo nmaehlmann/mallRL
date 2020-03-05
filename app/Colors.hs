@@ -37,9 +37,15 @@ dShelfSouth = Drawable shelfSouthGlyph white
 shelfSouthGlyph = V2 15 13
 
 filledGlyph = V2 11 13
+heartGlyph :: Glyph
+heartGlyph = V2 3 0
 
+black, white, red, grey, green :: Color
 black = V3 0 0 0
 white = V3 255 255 255
+red = V3 255 0 0
+grey = V3 80 80 80
+green = V3 0 150 0
 
 charToGlyph :: Char -> Glyph
 charToGlyph c = 

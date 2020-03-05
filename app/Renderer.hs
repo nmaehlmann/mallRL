@@ -49,12 +49,11 @@ loadTexture r filePath = do
     return (Texture t size)
 
 renderTileMap :: SDL.Renderer -> Texture -> TileImage -> TileImage -> IO ()
-renderTileMap r t (TileImage previous) (TileImage arr) = unless (previous == arr) $ mapM st (Array.range (Array.bounds arr)) >> return ()
+renderTileMap r t (TileImage previous) (TileImage arr) = mapM st (Array.range (Array.bounds arr)) >> return ()
     where st pos = do
             let tileOld = previous ! pos
             let tileNew = arr ! pos
             unless (tileOld == tileNew) $ do
-                -- putStrLn $ "rerender " ++ show pos
                 renderTile r t pos tileNew
     
 setTextureColor :: Texture -> Color -> IO ()
@@ -73,7 +72,7 @@ renderTile r t pos (Tile glyph fgColor bgColor) = do
     renderGlyph glyph
 
 tileSize, textureWidth, textureHeight :: CInt
-tileSize = 24
+tileSize = 12
 textureWidth = mapWidth * tileSize
 textureHeight = mapHeight * tileSize
 
@@ -89,7 +88,7 @@ play
   :: w
   -> System w TileImage -- ^ Drawing function
   -> (SDL.EventPayload -> System w ()) -- ^ Event handling function
-  -> (Float  -> System w ()) -- ^ Stepping function, with a time delta argument.
+  -> (Float  -> System w Bool) -- ^ Stepping function, with a time delta argument.
   -> IO ()
 play initialWorld draw handle step = do
     
@@ -106,7 +105,7 @@ play initialWorld draw handle step = do
     renderer <- SDL.createRenderer window (-1) rendererConfig
 
     targetTexture <- createBlank renderer (V2 textureWidth textureHeight) SDL.TextureAccessTarget
-    spriteSheetTexture <- loadTexture renderer "font24.bmp"
+    spriteSheetTexture <- loadTexture renderer "font_check.bmp"
 
     let loop world previousImage = do
 
@@ -121,14 +120,19 @@ play initialWorld draw handle step = do
             -- step world
             let t = 0.1
             -- putStrLn "step"
-            worldAfterStepping <- time $ runWith worldAfterEvents $ step t >> ask
+            (worldAfterStepping, rerenderNecessary) <- time $ runWith worldAfterEvents $ do
+                rerenderNecessary <- step t
+                worldAfterStepping <- ask
+                return (worldAfterStepping, rerenderNecessary)
 
-            -- render map to texture
-            -- putStrLn "draw"
-            tileImage <- time $ runWith worldAfterStepping draw
-            setAsRenderTarget renderer (Just targetTexture)
-            -- putStrLn "render"
-            time $ renderTileMap renderer spriteSheetTexture previousImage tileImage
+            nextImage <- if rerenderNecessary
+                then do
+                    -- render map to texture
+                    tileImage <- time $ runWith worldAfterStepping draw
+                    setAsRenderTarget renderer (Just targetTexture)
+                    time $ renderTileMap renderer spriteSheetTexture previousImage tileImage
+                    return tileImage
+                else return previousImage
 
             -- render texture to screen
             setAsRenderTarget renderer Nothing
@@ -142,7 +146,7 @@ play initialWorld draw handle step = do
             Control.Concurrent.threadDelay 33333
 
             --repeat
-            unless quit $ loop worldAfterStepping tileImage
+            unless quit $ loop worldAfterStepping nextImage
 
     loop initialWorld emptyMap
 

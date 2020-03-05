@@ -69,7 +69,7 @@ instance Monoid CTime where mempty = CTime 0
 newtype CName = CName String
 instance Component CName where type Storage CName = Apecs.Map CName
 
-makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CTime, ''CActions, ''CBehaviour, ''CLog, ''CName]
+makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CTime, ''CActions, ''CBehaviour, ''CLog, ''CName, ''CShoppingList]
 
 destroyEntity :: Entity -> System' () 
 destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory, CBehaviour, CName))

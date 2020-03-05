@@ -28,11 +28,13 @@ import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.Graph.AStar
 import TerminalText
+import UI
 
 initialize :: System' ()
 initialize = do
     mkBorder
-    newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CSolid, CInventory [], CName "You")
+    let shoppingList = [Pizza, Seaweed, Bananas, Fishsticks]
+    newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CSolid, CInventory [], CName "You", CShoppingList shoppingList)
     newEntity (CBehaviour (Buy Seaweed), CPosition (V2 2 1), Drawable (charToGlyph 'K') black, CSolid, CInventory [], CName "Kunibert")
     newEntity (CBehaviour (Buy Pizza), CPosition (V2 3 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CName "Jens")
     mkShelf 5 5 7 Seaweed Pizza
@@ -70,17 +72,18 @@ mkShelf x y l leftItem rightItem = do
 
 stepDuration = 0.6
 
-step :: Float -> System' ()
+step :: Float -> System' Bool
 step dT = do
-    handleActions
+    actionsDirty <- handleActions
     stepTime dT
+    return actionsDirty
 
-handleActions :: System' ()
+handleActions :: System' Bool
 handleActions = do
     action <- pollAction
     case action of
-        (Just a) -> handleAction a >> turn
-        Nothing -> return ()
+        (Just a) -> handleAction a >> turn >> return True
+        Nothing -> return False
 
 handleAction :: Action -> System' ()
 handleAction (Move d) = cmapM (movePlayer d)
@@ -164,7 +167,7 @@ whenKeyPressed :: SDL.Scancode -> SDL.EventPayload -> System' () -> System' ()
 whenKeyPressed s e sys = if (isKeyPressed s e) then sys else return ()
 
 draw :: System' TileImage
-draw = cfold cDrawDrawable testMap >>= drawLog
+draw = cfold cDrawDrawable testMap >>= drawUI
 
 cDrawDrawable :: TileImage -> (CPosition, CDrawable) -> TileImage
 cDrawDrawable tm (CPosition pos, drawable) = drawDrawable tm (pos, drawable)
@@ -219,25 +222,7 @@ filterFreePosition goal target = if goal == target
         targetBlocked <- containsSolidEntity entitiesAtTarget
         return $ if targetBlocked then HashSet.empty else HashSet.singleton target
 
-logSize :: Int
-logSize = 4
 
-leftPad :: Int -> a -> [a] -> [a]
-leftPad m x xs = replicate (m - length xs) x ++ xs
 
 logTxt :: TerminalText -> System' ()
 logTxt txt = modify global $ \(CLog txts) -> CLog $ txt : txts
-
-drawLog :: TileImage -> System' TileImage
-drawLog (TileImage arr) = do
-    let yMax = fromIntegral (mapHeight - 1)
-    let xMax = fromIntegral (mapWidth - 1)
-    let bg = [((V2 x y), tileEmpty) | x <- [0..xMax], y <- [(yMax - logSize + 1)..(yMax)]]
-    let tm = TileImage $ arr // bg
-    (CLog txts) <- get global
-    let paddedTxts = take logSize $ leftPad logSize (FGText "" black) txts
-    let logPositions = [(V2 0 y) | y <- (decrease yMax)]
-    return $ foldl (\tm (pos, txt) -> drawText pos txt tm) tm $ zip logPositions paddedTxts
-
-decrease :: Int -> [Int]
-decrease i = i : (decrease (i - 1))
