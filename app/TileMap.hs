@@ -6,7 +6,7 @@ import Linear
 
 mapWidth, mapHeight :: CInt
 mapWidth = 80
-mapHeight = 40
+mapHeight = 60
 
 arrayBounds :: (Position, Position)
 arrayBounds = (V2 0 0, fmap fromIntegral (V2 mapWidth mapHeight))

@@ -13,24 +13,50 @@ import Item
 import Apecs.Experimental.Reactive
 import Control.Monad
 import World
+import Data.List
 
-data Room = Room Int Int Int Int
+data Room = Room Int Int Int Int deriving Eq
 data Wall = Wall Int Int Int Int
 
 minRoomLen, minRoomSize :: Int
 minRoomLen = 10
 minRoomSize = 100
 
+leftWall, rightWall, upperWall, lowerWall :: Room -> [Position]
+leftWall (Room x y _ h) = [V2 (x - 1) ys | ys <- [y .. y + h - 1]]
+rightWall (Room x y w h) = [V2 (x + w) ys | ys <- [y .. y + h - 1]]
+upperWall (Room x y w _) = [V2 xs (y - 1) | xs <- [x .. x + w - 1]]
+lowerWall (Room x y w h) = [V2 xs (y + h) | xs <- [x .. x + w - 1]]
+
+doorPositions :: RandomGen g => [Room] -> Rand g [Position]
+doorPositions rooms = do
+    let doorWalls = filter (\l -> length l >= doorSize) [checkNeighbours r1 r2 | r1 <- rooms, r2 <- rooms]
+    concat <$> mapM pickDoor doorWalls
+
+checkNeighbours :: Room -> Room -> [Position]
+checkNeighbours r1 r2 = 
+    let l = intersect (leftWall r1) (rightWall r2)
+        u = intersect (upperWall r1) (lowerWall r2)
+    in  l ++ u
+
+doorSize = 3
+
+pickDoor :: RandomGen g => [Position] -> Rand g [Position]
+pickDoor ps = do
+    start <- getRandomR (0, length ps - 1 - doorSize)
+    return $ take doorSize $ drop start ps
+
 
 initializeMap :: System' ()
 initializeMap = do
     (rooms, walls) <- lift $ evalRandIO createRooms
-    mapM_ initializeWall walls
+    doors <- lift $ evalRandIO $ doorPositions rooms
+    mapM_ (initializeWall doors) walls
     return ()
 
-initializeWall :: Wall -> System' ()
-initializeWall (Wall x y x2 y2) = do
-    let positions = [(V2 wx wy) | wx <- [x .. x2], wy <- [y .. y2]]
+initializeWall :: [Position] -> Wall -> System' ()
+initializeWall doors (Wall x y x2 y2) = do
+    let positions = filter (\p -> not (elem p doors)) [(V2 wx wy) | wx <- [x .. x2], wy <- [y .. y2]]
     flip mapM_ positions $ \p -> do
         newEntity (CSolid, CPosition p, dWall)
     return ()

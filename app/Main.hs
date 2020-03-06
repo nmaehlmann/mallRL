@@ -39,9 +39,9 @@ initialize = do
     newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CSolid, CInventory [], CName "You", CShoppingList shoppingList)
     newEntity (CBehaviour (Buy Seaweed), CPosition (V2 2 1), Drawable (charToGlyph 'K') black, CSolid, CInventory [], CName "Kunibert")
     newEntity (CBehaviour (Buy Pizza), CPosition (V2 3 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CName "Jens")
-    mkShelf 5 5 7 Seaweed Pizza
-    mkShelf 11 5 7 Bananas Pizza
-    mkShelf 17 5 7 Fishsticks Fishsticks
+    -- mkShelf 5 5 7 Seaweed Pizza
+    -- mkShelf 11 5 7 Bananas Pizza
+    -- mkShelf 17 5 7 Fishsticks Fishsticks
     modify global $ appendAction Redisplay
     return ()
 
