@@ -154,3 +154,8 @@ play initialWorld draw handle step = do
     SDL.destroyWindow window
     SDL.quit
 
+testMap :: TileImage
+testMap = TileImage $ Array.listArray arrayBounds $ cycle [ground1, ground2]
+
+emptyMap :: TileImage
+emptyMap = TileImage $ Array.listArray arrayBounds $ cycle [tileEmpty]

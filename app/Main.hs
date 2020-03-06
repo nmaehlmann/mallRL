@@ -29,9 +29,11 @@ import qualified Data.HashSet as HashSet
 import Data.Graph.AStar
 import TerminalText
 import UI
+import MapGeneration
 
 initialize :: System' ()
 initialize = do
+    initializeMap
     mkBorder
     let shoppingList = [Pizza, Seaweed, Bananas, Fishsticks]
     newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CSolid, CInventory [], CName "You", CShoppingList shoppingList)
@@ -40,6 +42,7 @@ initialize = do
     mkShelf 5 5 7 Seaweed Pizza
     mkShelf 11 5 7 Bananas Pizza
     mkShelf 17 5 7 Fishsticks Fishsticks
+    modify global $ appendAction Redisplay
     return ()
 
 mkBorder :: System' ()
@@ -87,6 +90,7 @@ handleActions = do
 
 handleAction :: Action -> System' ()
 handleAction (Move d) = cmapM (movePlayer d)
+handleAction _ = return ()
 
 turn :: System' ()
 turn = do
@@ -130,6 +134,9 @@ handleEvent e = do
     whenKeyPressed SDL.ScancodeLeft e   $ modify global $ appendAction $ Move DirLeft
     whenKeyPressed SDL.ScancodeUp e     $ modify global $ appendAction $ Move DirUp
     whenKeyPressed SDL.ScancodeDown e   $ modify global $ appendAction $ Move DirDown
+    whenKeyPressed SDL.ScancodeR e      $ do
+        cmapM_ $ \(CPosition p, Entity e) -> destroyEntity (Entity e)
+        initialize
 
 appendAction :: Action -> CActions -> CActions
 appendAction a (CActions as) = CActions $ as ++ [a]

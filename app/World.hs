@@ -53,7 +53,7 @@ data Behaviour = Buy Item
 newtype CBehaviour = CBehaviour Behaviour
 instance Component CBehaviour where type Storage CBehaviour = Apecs.Map CBehaviour
 
-data Action = Move Direction
+data Action = Move Direction | Redisplay
 
 data Direction = DirUp | DirDown | DirLeft | DirRight
 

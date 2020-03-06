@@ -54,6 +54,9 @@ executables:
     - containers
     - astar
     - unordered-containers
+    - random
+    - MonadRandom
+
 
 tests:
   mall-test:
