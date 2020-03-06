@@ -15,13 +15,11 @@ import TileImage
 import Position
 import Renderer
 import qualified SDL
-import Data.Array
 import Colors
 import TileMap
 import CDrawable
 import Item
 import Apecs.Experimental.Reactive
-import Control.Monad
 import World
 import Interaction
 import Data.HashSet (HashSet)
@@ -39,9 +37,9 @@ initialize = do
     newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CSolid, CInventory [], CName "You", CShoppingList shoppingList)
     newEntity (CBehaviour (Buy Seaweed), CPosition (V2 2 1), Drawable (charToGlyph 'K') black, CSolid, CInventory [], CName "Kunibert")
     newEntity (CBehaviour (Buy Pizza), CPosition (V2 3 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CName "Jens")
-    mkShelf 5 5 7 Seaweed Pizza
-    mkShelf 11 5 7 Bananas Pizza
-    mkShelf 17 5 7 Fishsticks Fishsticks
+    -- mkShelf 5 5 7 Seaweed Pizza
+    -- mkShelf 11 5 7 Bananas Apples
+    -- mkShelf 17 5 7 Donut Nachos
     modify global $ appendAction Redisplay
     return ()
 
@@ -135,6 +133,7 @@ handleEvent e = do
     whenKeyPressed SDL.ScancodeUp e     $ modify global $ appendAction $ Move DirUp
     whenKeyPressed SDL.ScancodeDown e   $ modify global $ appendAction $ Move DirDown
     whenKeyPressed SDL.ScancodeR e      $ do
+
         cmapM_ $ \(CPosition p, Entity e) -> destroyEntity (Entity e)
         initialize
 
@@ -144,11 +143,7 @@ appendAction a (CActions as) = CActions $ as ++ [a]
 move :: (Position -> Position) -> Position -> Entity -> System' CPosition
 move direction p e = moveTo p (direction p) e
 
-left, right, up, down :: Position -> Position
-left (V2 x y) = V2 (x - 1) y
-right (V2 x y) = V2 (x + 1) y
-up (V2 x y) = V2 x (y - 1)
-down (V2 x y) = V2 x (y + 1)
+
 
 moveTo :: Position -> Position -> Entity -> System' CPosition
 moveTo source target movingEntity = do

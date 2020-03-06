@@ -36,6 +36,12 @@ shelfNorthGlyph = V2 12 13
 dShelfSouth = Drawable shelfSouthGlyph white
 shelfSouthGlyph = V2 15 13
 
+dShelfWest = Drawable shelfWestGlyph white
+shelfWestGlyph = V2 14 13
+
+dShelfEast = Drawable shelfEastGlyph white
+shelfEastGlyph = V2 13 13
+
 filledGlyph = V2 11 13
 heartGlyph :: Glyph
 heartGlyph = V2 3 0

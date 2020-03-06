@@ -1,22 +1,16 @@
 module MapGeneration where
 import Control.Monad.Random
-import System.Random
 import Apecs hiding (Map, Set)
 import Linear
-import TileImage
 import Position
-import Data.Array
 import Colors
-import TileMap
-import CDrawable
 import Item
-import Apecs.Experimental.Reactive
-import Control.Monad
 import World
 import Data.List
 
 data Room = Room Int Int Int Int deriving Eq
 data Wall = Wall Int Int Int Int
+data ShelfType = ShelfHor | ShelfVer | ShelfSquare
 
 minRoomLen, minRoomSize :: Int
 minRoomLen = 10
@@ -27,6 +21,7 @@ leftWall (Room x y _ h) = [V2 (x - 1) ys | ys <- [y .. y + h - 1]]
 rightWall (Room x y w h) = [V2 (x + w) ys | ys <- [y .. y + h - 1]]
 upperWall (Room x y w _) = [V2 xs (y - 1) | xs <- [x .. x + w - 1]]
 lowerWall (Room x y w h) = [V2 xs (y + h) | xs <- [x .. x + w - 1]]
+
 
 doorPositions :: RandomGen g => [Room] -> Rand g [Position]
 doorPositions rooms = do
@@ -52,7 +47,9 @@ initializeMap = do
     (rooms, walls) <- lift $ evalRandIO createRooms
     doors <- lift $ evalRandIO $ doorPositions rooms
     mapM_ (initializeWall doors) walls
-    return ()
+    flip mapM_ rooms $ \r -> do
+        shelfType <- evalRandom $ pickRandom [ShelfVer, ShelfHor]
+        fillRoom shelfType r
 
 initializeWall :: [Position] -> Wall -> System' ()
 initializeWall doors (Wall x y x2 y2) = do
@@ -122,4 +119,110 @@ chanceForNothing c r = do
 chance :: RandomGen g => Float -> Rand g Bool
 chance f = do
     r <- getRandomR (0,100)
-    return $ r < f 
+    return $ r < f
+
+type ItemChooser = Direction -> Rand StdGen Item
+
+alwaysNacho :: ItemChooser
+alwaysNacho _ = return Nachos
+
+dirItemChooser :: Item -> Item -> Item -> Item  -> ItemChooser
+dirItemChooser l _ _ _ DirLeft = return l
+dirItemChooser _ r _ _ DirRight = return r
+dirItemChooser _ _ u _ DirUp = return u
+dirItemChooser _ _ _ d DirDown = return d
+
+randomItemChooser :: ItemChooser
+randomItemChooser _ = pickRandom allItems
+
+mkShelfVer :: Position -> ItemChooser -> System' ()
+mkShelfVer (V2 x' y) itemChooser = do
+    let x = x' + 1
+    let l = shelfTypeHeight ShelfVer
+    flip mapM_ [V2 x ys | ys <- [y + 1 .. y + l - 2] ] $ \p -> do
+        -- shelf middle
+        newEntity (CSolid, CPosition p, dWall)
+        
+        -- shelf left
+        leftItem <- lift $ evalRandIO (itemChooser DirLeft)
+        newEntity (CSolid, CPosition (left p), dShelf)
+        newEntity (CItem leftItem, CPosition (left p), lookupItemDrawable leftItem)
+        
+        -- shelf right
+        rightItem <- lift $ evalRandIO (itemChooser DirRight)
+        newEntity (CSolid, CPosition (right p), dShelf)
+        newEntity (CItem rightItem, CPosition (right p), lookupItemDrawable rightItem)
+
+    flip mapM_ [V2 xs y | xs <- [x - 1 .. x + 1] ] $ \p -> do
+        -- shelf north bound
+        newEntity (CSolid, CPosition p, dShelfNorth)
+
+    flip mapM_ [V2 xs (y + l - 1) | xs <- [x - 1 .. x + 1] ] $ \p -> do
+        -- shelf south bound
+        newEntity (CSolid, CPosition p, dShelfSouth)
+
+mkShelfHor :: Position -> ItemChooser -> System' ()
+mkShelfHor (V2 x y') itemChooser = do
+    let y = y' + 1
+    let l = shelfTypeWidth ShelfHor
+    flip mapM_ [V2 xs y | xs <- [x + 1 .. x + l - 2] ] $ \p -> do
+        -- shelf middle
+        newEntity (CSolid, CPosition p, dWall)
+        
+        -- shelf up
+        leftItem <- lift $ evalRandIO (itemChooser DirLeft)
+        newEntity (CSolid, CPosition (up p), dShelf)
+        newEntity (CItem leftItem, CPosition (up p), lookupItemDrawable leftItem)
+        
+        -- shelf down
+        rightItem <- lift $ evalRandIO (itemChooser DirRight)
+        newEntity (CSolid, CPosition (down p), dShelf)
+        newEntity (CItem rightItem, CPosition (down p), lookupItemDrawable rightItem)
+
+    flip mapM_ [V2 x ys | ys <- [y - 1 .. y + 1] ] $ \p -> do
+        -- shelf west bound
+        newEntity (CSolid, CPosition p, dShelfWest)
+
+    flip mapM_ [V2 (x + l - 1) ys | ys <- [y - 1 .. y + 1] ] $ \p -> do
+        -- shelf east bound
+        newEntity (CSolid, CPosition p, dShelfEast)
+
+
+pickItemChooser :: RandomGen g => Rand g ItemChooser
+pickItemChooser = do
+        l <- pickRandom allItems
+        r <- pickRandom allItems
+        u <- pickRandom allItems
+        d <- pickRandom allItems
+        pickRandom [dirItemChooser l r u d, randomItemChooser]
+
+fillRoom :: ShelfType -> Room -> System' ()
+fillRoom st (Room x y w h) = do
+    let sp = shelfTypePadding st
+    let sw = shelfTypeWidth st
+    let sh = shelfTypeHeight st
+    let horNumShelves = (w - sp) `div` (sp + sw)
+    let xOff = (w - (sp + horNumShelves * (sp + sw))) `div` 2
+    let verNumShelves = (h - sp) `div` (sp + sh)
+    let yOff = (h - (sp + verNumShelves * (sp + sh))) `div` 2
+    let shelfPositions = [(V2 (x + xOff + sp + ix * (sw + sp)) (y + yOff + sp + iy * (sh + sp))) | ix <- [0..horNumShelves - 1], iy <- [0..verNumShelves - 1]]
+    flip mapM_ shelfPositions $ \p -> do
+        chooser <- evalRandom pickItemChooser
+        shelfGen st p chooser
+
+shelfTypeWidth, shelfTypeHeight, shelfTypePadding :: ShelfType -> Int
+shelfTypeWidth ShelfVer = 3
+shelfTypeWidth ShelfHor = 7
+shelfTypeHeight ShelfVer = 7
+shelfTypeHeight ShelfHor = 3
+shelfTypePadding ShelfVer = 2
+shelfTypePadding ShelfHor = 2
+
+shelfGen ShelfVer = mkShelfVer
+shelfGen ShelfHor = mkShelfHor
+
+pickRandom :: RandomGen g => [a] -> Rand g a
+pickRandom l = do
+    let ll = length l
+    idx <- getRandomR (0, ll - 1)
+    return $ l !! idx

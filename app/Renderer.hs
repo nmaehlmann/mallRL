@@ -9,7 +9,6 @@ import SDL (($=))
 import qualified SDL
 import Data.Array ((!))
 import qualified Data.Array as Array
-import Text.Printf
 import System.CPUTime
 import Position
 import Apecs hiding (($=))

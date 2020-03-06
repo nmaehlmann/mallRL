@@ -18,6 +18,7 @@ import CDrawable
 import Item
 import Apecs.Experimental.Reactive
 import TerminalText
+import Control.Monad.Random
 
 newtype CPosition = CPosition Position 
     deriving (Show, Eq, Ord)
@@ -75,3 +76,6 @@ destroyEntity :: Entity -> System' ()
 destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory, CBehaviour, CName))
 
 type System' a = System World a
+
+evalRandom :: Rand StdGen a -> System' a
+evalRandom g = lift $ evalRandIO g
