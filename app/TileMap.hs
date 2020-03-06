@@ -5,8 +5,8 @@ import qualified Data.Array as Array
 import Linear
 
 mapWidth, mapHeight :: CInt
-mapWidth = 80
-mapHeight = 60
+mapWidth = 50  
+mapHeight = 25
 
 arrayBounds :: (Position, Position)
 arrayBounds = (V2 0 0, fmap fromIntegral (V2 mapWidth mapHeight))

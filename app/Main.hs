@@ -34,14 +34,14 @@ import MapGeneration
 initialize :: System' ()
 initialize = do
     initializeMap
-    mkBorder
+    -- mkBorder
     let shoppingList = [Pizza, Seaweed, Bananas, Fishsticks]
     newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CSolid, CInventory [], CName "You", CShoppingList shoppingList)
     newEntity (CBehaviour (Buy Seaweed), CPosition (V2 2 1), Drawable (charToGlyph 'K') black, CSolid, CInventory [], CName "Kunibert")
     newEntity (CBehaviour (Buy Pizza), CPosition (V2 3 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CName "Jens")
-    -- mkShelf 5 5 7 Seaweed Pizza
-    -- mkShelf 11 5 7 Bananas Pizza
-    -- mkShelf 17 5 7 Fishsticks Fishsticks
+    mkShelf 5 5 7 Seaweed Pizza
+    mkShelf 11 5 7 Bananas Pizza
+    mkShelf 17 5 7 Fishsticks Fishsticks
     modify global $ appendAction Redisplay
     return ()
 
@@ -174,10 +174,15 @@ whenKeyPressed :: SDL.Scancode -> SDL.EventPayload -> System' () -> System' ()
 whenKeyPressed s e sys = if (isKeyPressed s e) then sys else return ()
 
 draw :: System' TileImage
-draw = cfold cDrawDrawable testMap >>= drawUI
+draw = flip cfoldM emptyMap $ \tm (CPlayer, CPosition p) -> do
+    cfold (cDrawDrawable p) testMap >>= drawUI
 
-cDrawDrawable :: TileImage -> (CPosition, CDrawable) -> TileImage
-cDrawDrawable tm (CPosition pos, drawable) = drawDrawable tm (pos, drawable)
+cDrawDrawable :: Position -> TileImage -> (CPosition, CDrawable) -> TileImage
+cDrawDrawable (V2 playerX playerY) tm (CPosition pos, drawable) = drawDrawable tm (pos + camera, drawable)
+    where
+        camera = V2 xOff yOff
+        xOff = (div (mapWidthInt - sidebarSize) 2) - playerX
+        yOff = (div (mapHeightInt - logSize) 2) - playerY
 
 isKeyPressed :: SDL.Scancode -> SDL.EventPayload -> Bool
 isKeyPressed scancode (SDL.KeyboardEvent e) = pressed && justPressed && rightKey
