@@ -8,7 +8,7 @@ import TileMap
 data CDrawable = Drawable Glyph Color | DrawableBG Glyph Color Color
 
 drawDrawable :: TileImage -> (Position, CDrawable) -> TileImage
-drawDrawable tm all@((V2 x y), d) = if x <= xMax && y <= yMax && x >= 0 && y >= 0 then drawDrawableUnsafe tm all else tm
+drawDrawable tm all@((V2 x y), d) = if x < xMax && y < yMax && x >= 0 && y >= 0 then drawDrawableUnsafe tm all else tm
 
 drawDrawableUnsafe :: TileImage -> (Position, CDrawable) -> TileImage
 drawDrawableUnsafe (TileImage tm) ((pos, Drawable glyph color)) = 

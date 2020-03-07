@@ -20,6 +20,10 @@ import Apecs.Experimental.Reactive
 import TerminalText
 import Control.Monad.Random
 import Room
+import qualified Debug.Trace as Trace
+
+positionMaxX = 100
+positionMaxY = 100
 
 newtype CPosition = CPosition Position 
     deriving (Show, Eq, Ord)
@@ -27,7 +31,7 @@ newtype CPosition = CPosition Position
 instance Component CPosition where type Storage CPosition = Reactive (IxMap CPosition) (Apecs.Map CPosition)
 instance Bounded CPosition where
     minBound = CPosition (V2 0 0)
-    maxBound = CPosition (V2 1000 1000)
+    maxBound = CPosition (V2 positionMaxX positionMaxY)
 
 data CPlayer = CPlayer deriving Show
 instance Component CPlayer where type Storage CPlayer = Unique CPlayer
@@ -50,7 +54,8 @@ instance Component CActions where type Storage CActions = Apecs.Global CActions
 data CShoppingList = CShoppingList [Item]
 instance Component CShoppingList where type Storage CShoppingList = Apecs.Map CShoppingList
 
-data Behaviour = Buy Item
+data Behaviour = Buy Item [Position] | Deciding
+    deriving Eq
 
 newtype CBehaviour = CBehaviour Behaviour
 instance Component CBehaviour where type Storage CBehaviour = Apecs.Map CBehaviour

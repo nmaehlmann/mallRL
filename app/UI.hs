@@ -22,7 +22,7 @@ import World
 import TerminalText
 
 logSize :: Int
-logSize = 4
+logSize = 20
 
 sidebarSize :: Int
 sidebarSize = 17

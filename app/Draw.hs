@@ -16,7 +16,7 @@ draw = flip cfoldM emptyMap $ \tm (CPlayer, CPosition playerPosition, CIsInRoom 
 
 cDrawDrawable :: Position -> [Room] -> TileImage -> (CPosition, CDrawable) -> TileImage
 cDrawDrawable (V2 playerX playerY) roomsToDraw tm (CPosition pos, drawable) = 
-    if elem True $ map (containsPosition pos) roomsToDraw 
+    if True -- elem True $ map (containsPosition pos) roomsToDraw 
         then drawDrawable tm (pos + camera, drawable)
         else tm
     where
