@@ -11,12 +11,10 @@
 module Main where
 import Apecs hiding (Map, Set)
 import Linear
-import TileImage
 import Position
 import Renderer
 import qualified SDL
 import Colors
-import TileMap
 import CDrawable
 import Item
 import World
@@ -26,25 +24,31 @@ import MapGeneration
 import Pathfinding
 import Draw
 import Control.Monad
-import Car
 import Data.Maybe
+import RandomUtility
 
 initialize :: System' ()
 initialize = do
-    initializeMap
+    carComponents <- initializeMap
     mkBorder
+
+    (CCar playerCarPosition) <- evalRandom $ pickRandom carComponents
+    let playerPosition = right $ carDoorPosition playerCarPosition
     let shoppingList = [Pizza, Seaweed, Bananas, Fishsticks]
-    newEntity (CPlayer, CPosition (V2 1 1), dPlayer, CSolid, CInventory [], CName "You", CShoppingList shoppingList, CIsInRoom [])
-    newEntity (CBehaviour Deciding, CPosition (V2 2 1), Drawable (charToGlyph 'K') black, CSolid, CInventory [], CShoppingList shoppingList, CName "Kunibert")
-    newEntity (CBehaviour Deciding, CPosition (V2 3 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CShoppingList shoppingList, CName "Jens")
-    newEntity (CBehaviour Deciding, CPosition (V2 4 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CShoppingList shoppingList, CName "Jens")
-    newEntity (CBehaviour Deciding, CPosition (V2 5 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CShoppingList shoppingList, CName "Jens")
-    newEntity (CBehaviour Deciding, CPosition (V2 6 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CShoppingList shoppingList, CName "Jens")
-    newEntity (CBehaviour Deciding, CPosition (V2 7 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CShoppingList shoppingList, CName "Jens")
-    newEntity (CBehaviour Deciding, CPosition (V2 8 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CShoppingList shoppingList, CName "Jens")
-    newEntity (CBehaviour Deciding, CPosition (V2 9 1), Drawable (charToGlyph 'J') black, CSolid, CInventory [], CShoppingList shoppingList, CName "Jens")
+    newEntity (CPlayer, CPosition playerPosition, dPlayer, CSolid, CInventory [], CName "You", CShoppingList shoppingList, (CIsInRoom [], COwnsCar playerCarPosition))
+
+    flip mapM_ carComponents $ \(CCar carPosition) -> do
+        when (carPosition /= playerCarPosition) $ do
+            let position = right $ carDoorPosition carPosition
+            newEntity (CBehaviour Deciding, CPosition position, Drawable (charToGlyph 'B') npcColor, CSolid, CInventory [], CShoppingList shoppingList, CName "Kunibert", COwnsCar carPosition)
+            return ()
+            
     modify global $ appendAction Redisplay
     return ()
+
+
+carDoorPosition :: Position -> Position
+carDoorPosition carPosition = carPosition + V2 2 4
 
 mkBorder :: System' ()
 mkBorder = do
@@ -155,10 +159,20 @@ moveTo :: Position -> Position -> Entity -> System' (CPosition, [Item])
 moveTo source target movingEntity = do
     entitiesAtTarget <- entitiesAtPosition target
     pickedupItems <- catMaybes <$> mapM (pickupItem movingEntity) entitiesAtTarget
+    mapM (enterCar movingEntity) entitiesAtTarget
     targetBlocked <- containsSolidEntity entitiesAtTarget
     when (not targetBlocked) $ mapM_ (enterRooms movingEntity) entitiesAtTarget
     let newPos = CPosition $ if targetBlocked then source else target
     return (newPos, pickedupItems)
+
+enterCar :: Entity -> Entity -> System' ()
+enterCar playerEntity itemEntity = do
+    interaction_ playerEntity itemEntity $ \(CPlayer, COwnsCar ownedCarPosition) (CCar carPosition, CPosition touchedPosition) -> do
+        if ownedCarPosition /= carPosition then
+            logTxtS "This is not your car."
+        else if touchedPosition == carDoorPosition carPosition
+            then logTxtS "First shop before you enter."
+            else logTxtS "Go to the driver's door."
 
 pickupItem :: Entity -> Entity -> System' (Maybe Item)
 pickupItem activeEntity itemEntity = do

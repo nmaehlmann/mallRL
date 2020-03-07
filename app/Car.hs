@@ -5,6 +5,8 @@ import Linear
 import Colors
 import World
 import CDrawable
+import TileImage
+import RandomUtility
 
 flipV (DrawableBG g c1 c2) = DrawableBG g c2 c1
 flipV a = a
@@ -40,17 +42,19 @@ car =
 carWidth = 3
 carHeight = 7
 
-mkParkingLot :: Int -> Int -> Int -> System' ()
+mkParkingLot :: Int -> Int -> Int -> System' [CCar]
 mkParkingLot xOff yOff cols = do
-    flip mapM_ [0..(cols-1)] $ \col -> do
+    result <- flip mapM [0..(cols-1)] $ \col -> do
         let xOffC = xOff + col * (carWidth + 3)
-        mkCar xOffC yOff
+        car1 <- mkCar xOffC yOff
         mkCarLineH (xOffC - 1) (yOff + carHeight)
-        mkCar xOffC (yOff + carHeight + 1)
+        car2 <- mkCar xOffC (yOff + carHeight + 1)
         when (col /= (cols - 1)) $ do 
             newEntity (CPosition (V2 ((carWidth + 1) + xOffC) (yOff + carHeight)), dCross)
             mkCarLineV ((carWidth + 1) + xOffC) yOff
             mkCarLineV ((carWidth + 1) + xOffC) (yOff + carHeight + 1)
+        return [car1, car2]
+    return $ join result
 
 mkCarLineV :: Int -> Int -> System' ()
 mkCarLineV xOff yOff = do
@@ -62,7 +66,21 @@ mkCarLineH xOff yOff = do
     flip mapM_ [(V2 (x + xOff) yOff) | x <- [0 .. carWidth + 1]] $ \p -> do
         newEntity (CPosition p, dLineH)
 
-mkCar :: Int -> Int -> System' ()
+data CarColors = CarColors Color Color
+
+carBlue :: CarColors
+carBlue = CarColors (V3 0 51 102) (V3 0 89 178)
+
+carRed :: CarColors
+carRed = CarColors (V3 178 0 0) (V3 217 0 0)
+
+carYellow :: CarColors
+carYellow = CarColors (V3 217 217 0) (V3 255 255 0)
+
+mkCar :: Int -> Int -> System' CCar
 mkCar xOff yOff = do
+    let carId = CCar (V2 xOff yOff)
+    (CarColors colMain colSide) <- evalRandom $ pickRandom [carYellow, carRed, carBlue]
     flip mapM_ [(V2 x y) | x <- [0..2], y <- [0..6]] $ \p@(V2 x y) -> do
-        newEntity (CPosition (p + (V2 xOff yOff)), (car !! y !! x) (V3 0 51 102) (V3 0 89 178))
+        newEntity (CPosition (p + (V2 xOff yOff)), (car !! y !! x) colMain colSide, CSolid, carId)
+    return carId

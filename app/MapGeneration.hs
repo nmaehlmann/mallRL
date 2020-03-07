@@ -9,6 +9,7 @@ import World
 import Data.List
 import Room
 import Car
+import RandomUtility
 
 data ShelfType = ShelfHor | ShelfVer | ShelfSquare
 
@@ -51,14 +52,14 @@ pickDoor ps = do
     start <- getRandomR (0, length ps - 1 - doorSize)
     return $ take doorSize $ drop start ps
 
-
 getRoomsForPosition :: [Room] -> Position -> [Room]
 getRoomsForPosition rs p = filter (containsPosition p) rs
 
-initializeMap :: System' ()
+initializeMap :: System' [CCar]
 initializeMap = do
-    mkParkingLot 10 10 4
-    mkParkingLot 10 30 4
+    cars1 <- mkParkingLot 10 5 5
+    cars2 <- mkParkingLot 10 25 5
+    cars3 <- mkParkingLot 10 45 5
     (rooms, walls) <- lift $ evalRandIO $ createMall 40 3
     flip mapM_ (allGroundPositions rooms) $ \p -> do
         newEntity (CPosition p, dGround, CIsInRoom (getRoomsForPosition rooms p))
@@ -70,6 +71,7 @@ initializeMap = do
     flip mapM_ rooms $ \r -> do
         shelfType <- evalRandom $ pickRandom [ShelfVer, ShelfHor]
         fillRoom shelfType r
+    return $ cars1 ++ cars2 ++ cars3
 
 initializeWall :: [Position] -> Wall -> System' ()
 initializeWall doors (Wall x y x2 y2) = do
@@ -86,7 +88,7 @@ createMall x y = do
     let wH = initialH + 1
     let wTop = Wall x y (x + wW) y
     let wBot = Wall x (y + wH) (x + wW) (y + wH)
-    let wLeft = Wall x y x (x + wH)
+    let wLeft = Wall x y x (y + wH)
     let wRight = Wall (x + wW) y (x + wW) (y + wH)
     let initialRoom = Room (x+1) (y+1) initialW initialH
     (rooms, walls) <- divideRoom initialRoom
@@ -108,7 +110,6 @@ divide (Room x y w h) = chanceForNothing 0 $ do
     variance <- getRandomR (-3, 3)
     let fw = fromIntegral w :: Float
     let fh = fromIntegral h :: Float
-    
     if divHor >= (fw / (fw + fh))
         then do -- [|]
             let h1 = div h 2 + variance
@@ -241,9 +242,3 @@ shelfTypePadding ShelfHor = 2
 
 shelfGen ShelfVer = mkShelfVer
 shelfGen ShelfHor = mkShelfHor
-
-pickRandom :: RandomGen g => [a] -> Rand g a
-pickRandom l = do
-    let ll = length l
-    idx <- getRandomR (0, ll - 1)
-    return $ l !! idx

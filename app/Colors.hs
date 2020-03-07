@@ -21,7 +21,9 @@ dCross = Drawable (V2 5 12) white
 
 dPlayer = Drawable playerGlyph playerColor
 playerGlyph = charToGlyph '@'
-playerColor = white
+playerColor = black
+
+npcColor = grey
 
 dWall = Drawable wallGlyph wallColor
 wallGlyph = V2 11 13

@@ -18,12 +18,10 @@ import CDrawable
 import Item
 import Apecs.Experimental.Reactive
 import TerminalText
-import Control.Monad.Random
 import Room
-import qualified Debug.Trace as Trace
 
 positionMaxX = 100
-positionMaxY = 100
+positionMaxY = 64
 
 newtype CPosition = CPosition Position 
     deriving (Show, Eq, Ord)
@@ -79,15 +77,19 @@ instance Component CIsInRoom where type Storage CIsInRoom = Apecs.Map CIsInRoom
 newtype CName = CName String
 instance Component CName where type Storage CName = Apecs.Map CName
 
-makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CTime, ''CActions, ''CBehaviour, ''CLog, ''CName, ''CShoppingList, ''CIsInRoom]
+newtype CCar = CCar Position
+instance Component CCar where type Storage CCar = Apecs.Map CCar
+
+newtype COwnsCar = COwnsCar Position
+instance Component COwnsCar where type Storage COwnsCar = Apecs.Map COwnsCar
+
+makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory
+    , ''CTime, ''CActions, ''CBehaviour, ''CLog, ''CName, ''CShoppingList, ''CIsInRoom, ''CCar, ''COwnsCar]
 
 destroyEntity :: Entity -> System' () 
-destroyEntity e = destroy e (Proxy :: Proxy ((CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory), (CBehaviour, CName, CIsInRoom)))
+destroyEntity e = destroy e (Proxy :: Proxy ((CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory), (CBehaviour, CName, CIsInRoom, CCar, COwnsCar)))
 
 type System' a = System World a
-
-evalRandom :: Rand StdGen a -> System' a
-evalRandom g = lift $ evalRandIO g
 
 entitiesAtPosition :: Position -> System' [Entity]
 entitiesAtPosition pos = withReactive $ ixLookup (CPosition pos)
