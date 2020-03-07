@@ -7,9 +7,8 @@ import Colors
 import Item
 import World
 import Data.List
+import Room
 
-data Room = Room Int Int Int Int deriving Eq
-data Wall = Wall Int Int Int Int
 data ShelfType = ShelfHor | ShelfVer | ShelfSquare
 
 minRoomLen, minRoomSize :: Int
@@ -21,6 +20,7 @@ leftWall (Room x y _ h) = [V2 (x - 1) ys | ys <- [y .. y + h - 1]]
 rightWall (Room x y w h) = [V2 (x + w) ys | ys <- [y .. y + h - 1]]
 upperWall (Room x y w _) = [V2 xs (y - 1) | xs <- [x .. x + w - 1]]
 lowerWall (Room x y w h) = [V2 xs (y + h) | xs <- [x .. x + w - 1]]
+
 
 
 doorPositions :: RandomGen g => [Room] -> Rand g [Position]
@@ -41,10 +41,14 @@ pickDoor ps = do
     start <- getRandomR (0, length ps - 1 - doorSize)
     return $ take doorSize $ drop start ps
 
+getRoomsForPosition :: [Room] -> Position -> [Room]
+getRoomsForPosition rs p = filter (containsPosition p) rs
 
 initializeMap :: System' ()
 initializeMap = do
     (rooms, walls) <- lift $ evalRandIO createRooms
+    flip mapM_ (allGroundPositions rooms) $ \p -> do
+        newEntity (CPosition p, dGround, CIsInRoom (getRoomsForPosition rooms p))
     doors <- lift $ evalRandIO $ doorPositions rooms
     mapM_ (initializeWall doors) walls
     flip mapM_ rooms $ \r -> do
@@ -68,7 +72,7 @@ createRooms = do
     let wBot = Wall 0 wH wW wH
     let wLeft = Wall 0 0 0 wH
     let wRight = Wall wW 0 wW wH
-    let initialRoom = Room 1 1 wW wH
+    let initialRoom = Room 1 1 initialW initialH
     (rooms, walls) <- divideRoom initialRoom
     return (rooms, walls ++ [wTop, wBot, wLeft, wRight])
 

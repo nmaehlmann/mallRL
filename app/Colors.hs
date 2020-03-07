@@ -13,6 +13,8 @@ groundGlyph2 = V2 4 0
 groundFGColor = V3 255 178 102
 groundBGColor = V3 255 140 103
 
+dGround = DrawableBG groundGlyph1 groundFGColor groundBGColor
+
 dPlayer = Drawable playerGlyph playerColor
 playerGlyph = charToGlyph '@'
 playerColor = white

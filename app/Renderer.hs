@@ -154,7 +154,7 @@ play initialWorld draw handle step = do
     SDL.quit
 
 testMap :: TileImage
-testMap = TileImage $ Array.listArray arrayBounds $ cycle [ground1, ground2]
+testMap = TileImage $ Array.listArray arrayBounds $ cycle [tileEmpty]
 
 emptyMap :: TileImage
 emptyMap = TileImage $ Array.listArray arrayBounds $ cycle [tileEmpty]

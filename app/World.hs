@@ -19,6 +19,7 @@ import Item
 import Apecs.Experimental.Reactive
 import TerminalText
 import Control.Monad.Random
+import Room
 
 newtype CPosition = CPosition Position 
     deriving (Show, Eq, Ord)
@@ -67,15 +68,21 @@ instance Component CTime where type Storage CTime = Apecs.Global CTime
 instance Semigroup CTime where (CTime t1) <> (CTime t2) = CTime (t1 + t2)
 instance Monoid CTime where mempty = CTime 0
 
+newtype CIsInRoom = CIsInRoom [Room]
+instance Component CIsInRoom where type Storage CIsInRoom = Apecs.Map CIsInRoom
+
 newtype CName = CName String
 instance Component CName where type Storage CName = Apecs.Map CName
 
-makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CTime, ''CActions, ''CBehaviour, ''CLog, ''CName, ''CShoppingList]
+makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory, ''CTime, ''CActions, ''CBehaviour, ''CLog, ''CName, ''CShoppingList, ''CIsInRoom]
 
 destroyEntity :: Entity -> System' () 
-destroyEntity e = destroy e (Proxy :: Proxy (CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory, CBehaviour, CName))
+destroyEntity e = destroy e (Proxy :: Proxy ((CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory), (CBehaviour, CName, CIsInRoom)))
 
 type System' a = System World a
 
 evalRandom :: Rand StdGen a -> System' a
 evalRandom g = lift $ evalRandIO g
+
+entitiesAtPosition :: Position -> System' [Entity]
+entitiesAtPosition pos = withReactive $ ixLookup (CPosition pos)
