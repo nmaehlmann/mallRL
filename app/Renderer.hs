@@ -105,7 +105,7 @@ play initialWorld draw handle step = do
     renderer <- SDL.createRenderer window (-1) rendererConfig
 
     targetTexture <- createBlank renderer (V2 textureWidth textureHeight) SDL.TextureAccessTarget
-    spriteSheetTexture <- loadTexture renderer "font_check.bmp"
+    spriteSheetTexture <- loadTexture renderer "font_custom.bmp"
 
     let loop world previousImage = do
 
