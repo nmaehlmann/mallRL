@@ -17,24 +17,19 @@ pathToItem currentPosition item = do
             else l
     case itemPositions of
         [] -> return Nothing
-        (goal : _) -> do
-            (CMallRoom mallRoom) <- get global
-            let bothPositionsInMall = containsPosition goal mallRoom && containsPosition currentPosition mallRoom
-            let neighboursFun = if bothPositionsInMall then neighboursInMall mallRoom else neighbours
-            aStarM 
-                (neighboursFun goal)
-                distanceBetweenNeighbours
-                (heuristicDistanceToGoal goal)
-                (\p -> return (p == goal))
-                (return currentPosition)
+        (goal : _) -> pathToPosition currentPosition goal
 
 pathToPosition :: Position -> Position -> System' (Maybe [Position])
-pathToPosition currentPosition goal = aStarM 
-    (neighbours goal)
-    distanceBetweenNeighbours
-    (heuristicDistanceToGoal goal)
-    (\p -> return (p == goal))
-    (return currentPosition)
+pathToPosition currentPosition goal = do
+    (CMallRoom mallRoom) <- get global
+    let bothPositionsInMall = containsPosition goal mallRoom && containsPosition currentPosition mallRoom
+    let neighboursFun = if bothPositionsInMall then neighboursInMall mallRoom else neighbours
+    aStarM
+        (neighboursFun goal)
+        distanceBetweenNeighbours
+        (heuristicDistanceToGoal goal)
+        (\p -> return (p == goal))
+        (return currentPosition)
 
 positionValid :: Position -> Bool
 positionValid (V2 x y) = x < positionMaxX && y < positionMaxY && x >= 0 && y >= 0
