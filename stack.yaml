@@ -19,10 +19,28 @@
 # resolver: https://example.com/snapshots/2018-01-01.yaml
 resolver: lts-14.20
 
+ghc-variant: integersimple
+
+setup-info:
+  ghc:
+    windows64-integersimple:
+      8.6.5:
+          url: "C:/Users/Nikolas/Downloads/ghc-8.6.5-x86_64-unknown-mingw32.tar.xz"
+
 extra-deps:
 - git: https://github.com/haskell-game/sdl2-image.git
   commit: 382395c763b473032721c71921b5c9241142178f
 - astar-0.3.0.0
+
+flags:
+  # text:
+  #   integer-simple: true
+  hashable:
+    integer-gmp: false
+  scientific:
+    integer-simple: true
+  integer-logarithms:
+    integer-gmp: false
 
 
 # User packages to be built.
