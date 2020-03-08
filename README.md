@@ -4,7 +4,7 @@ mallRL is a grocery shopping roguelike developed for the 7drl game jam.
 
 Your goal is to buy every item from your shopping list.
 
-The jam version was developed from monday 02.03.2020 to sunday 08.03.2020. The week before the jam I took 2 days to prepare the technical side, as I was developing the game from scratch without an engine using SDL2 and an ECS library. After my preparation I had the ECS library included, was able to read keyboard inputs and render tiles. On monday I started the jam with a tile that could be moved on screen.
+The jam version is tagged as 7drl-release and was developed from monday 02.03.2020 to sunday 08.03.2020. The week before the jam I took 2 days to prepare the technical side, as I was developing the game from scratch without an engine using SDL2 and an ECS library. After my preparation I had the ECS library included, was able to read keyboard inputs and render tiles. On monday I started the jam with a tile that could be moved on screen.
 
 ## Building on Windows
 ### Install SDL2 via stack & pacman:
