@@ -14,7 +14,7 @@ flipV a = a
 windowColor = V3 102 178 255
 
 carTop cMain cSide = Drawable (V2 12 13) cMain
-carTireLeftTop cMain cSide = DrawableBG (V2 13 13) black cSide
+carTireLeftTop cMain cSide = DrawableBG (V2 13 13) grey cSide
 carTireRightTop cMain cSide = flipV $ carTireLeftTop cMain cSide
 carRoof cMain cSide = DrawableBG (V2 0 15) black cSide
 carSideLeft cMain cSide = DrawableBG (V2 13 13) cMain cSide
@@ -22,7 +22,7 @@ carSideRight cMain cSide = flipV $ carSideLeft cMain cSide
 carWindowLeft cMain cSide = DrawableBG (V2 13 13) cMain windowColor
 carWindowRight cMain cSide = flipV $ carWindowLeft cMain cSide
 carWindowMiddle cMain cSide = DrawableBG (V2 1 11) white windowColor
-carTireLeftBot cMain cSide = DrawableBG (V2 13 13) black cMain
+carTireLeftBot cMain cSide = DrawableBG (V2 13 13) grey cMain
 carTireRightBot cMain cSide = flipV $ carTireLeftBot cMain cSide
 carFrontLeft cMain cSide = DrawableBG (V2 10 13) black cMain
 carFrontRight cMain cSide = DrawableBG (V2 15 11) black cMain

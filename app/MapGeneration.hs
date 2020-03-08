@@ -10,12 +10,40 @@ import Data.List
 import Room
 import Car
 import RandomUtility
+import Debug.Trace
+import CDrawable
 
 data ShelfType = ShelfHor | ShelfVer | ShelfSquare
 
 minRoomLen, minRoomSize :: Int
 minRoomLen = 10
 minRoomSize = 100
+
+initializeMap :: System' (Room, [CCar])
+initializeMap = do
+    (mallRoom, rooms, walls) <- lift $ evalRandIO $ createMall 40 3
+    -- mkGround mallRoom
+    cars1 <- mkParkingLot 10 5 5
+    cars2 <- mkParkingLot 10 25 5
+    cars3 <- mkParkingLot 10 45 5
+    flip mapM_ (allGroundPositions rooms) $ \p -> do
+        newEntity (CPosition p, dGround, CIsInRoom (getRoomsForPosition rooms p))
+    ds <- evalRandom $ do
+        doors <- doorPositions rooms
+        entrance <- entracePositions rooms
+        return $ doors ++ entrance
+    mapM_ (initializeWall ds) walls
+    flip mapM_ rooms $ \r -> do
+        shelfType <- evalRandom $ pickRandom [ShelfVer, ShelfHor]
+        fillRoom shelfType r
+    return (mallRoom, cars1 ++ cars2 ++ cars3)
+
+mkGround :: Room -> System' ()
+mkGround (Room x y w h) = do
+    let borderX = x + w + 5
+    let allPositions = [V2 x y | x <- [0 .. borderX], y <- [0 .. positionMaxY]]
+    flip mapM_ allPositions $ \p -> do
+        newEntity (CPosition p, DrawableBG filledGlyph groundBGColor groundBGColor)
 
 leftWall, rightWall, upperWall, lowerWall :: Room -> [Position]
 leftWall (Room x y _ h) = [V2 (x - 1) ys | ys <- [y .. y + h - 1]]
@@ -55,23 +83,7 @@ pickDoor ps = do
 getRoomsForPosition :: [Room] -> Position -> [Room]
 getRoomsForPosition rs p = filter (containsPosition p) rs
 
-initializeMap :: System' [CCar]
-initializeMap = do
-    cars1 <- mkParkingLot 10 5 5
-    cars2 <- mkParkingLot 10 25 5
-    cars3 <- mkParkingLot 10 45 5
-    (rooms, walls) <- lift $ evalRandIO $ createMall 40 3
-    flip mapM_ (allGroundPositions rooms) $ \p -> do
-        newEntity (CPosition p, dGround, CIsInRoom (getRoomsForPosition rooms p))
-    ds <- evalRandom $ do
-        doors <- doorPositions rooms
-        entrance <- entracePositions rooms
-        return $ doors ++ entrance
-    mapM_ (initializeWall ds) walls
-    flip mapM_ rooms $ \r -> do
-        shelfType <- evalRandom $ pickRandom [ShelfVer, ShelfHor]
-        fillRoom shelfType r
-    return $ cars1 ++ cars2 ++ cars3
+
 
 initializeWall :: [Position] -> Wall -> System' ()
 initializeWall doors (Wall x y x2 y2) = do
@@ -80,7 +92,7 @@ initializeWall doors (Wall x y x2 y2) = do
         newEntity (CSolid, CPosition p, dWall)
     return ()
 
-createMall :: RandomGen g => Int -> Int ->  Rand g ([Room], [Wall])
+createMall :: RandomGen g => Int -> Int ->  Rand g (Room, [Room], [Wall])
 createMall x y = do
     initialW <- getRandomR (30,50)
     initialH <- getRandomR (30,50)
@@ -92,7 +104,7 @@ createMall x y = do
     let wRight = Wall (x + wW) y (x + wW) (y + wH)
     let initialRoom = Room (x+1) (y+1) initialW initialH
     (rooms, walls) <- divideRoom initialRoom
-    return (rooms, walls ++ [wTop, wBot, wLeft, wRight])
+    return (initialRoom, rooms, walls ++ [wTop, wBot, wLeft, wRight])
 
 divideRoom :: RandomGen g => Room ->  Rand g ([Room], [Wall])
 divideRoom room = do

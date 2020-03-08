@@ -26,16 +26,21 @@ import Draw
 import Control.Monad
 import Data.Maybe
 import RandomUtility
+import Room
+import Data.List
 
 initialize :: System' ()
 initialize = do
-    carComponents <- initializeMap
-    mkBorder
+    set global $ Running 0
+    welcomeMessage
+    (mallRoom, carComponents) <- initializeMap
+    set global $ CMallRoom mallRoom
+    mkBorder mallRoom
 
     (CCar playerCarPosition) <- evalRandom $ pickRandom carComponents
     let playerPosition = right $ carDoorPosition playerCarPosition
-    let shoppingList = [Pizza, Seaweed, Bananas, Fishsticks]
-    newEntity (CPlayer, CPosition playerPosition, dPlayer, CSolid, CInventory [], CName "You", CShoppingList shoppingList, (CIsInRoom [], COwnsCar playerCarPosition))
+    let shoppingList = [Pizza, Seaweed, Bananas, Fishsticks, Bananas, Bananas]
+    newEntity (CPlayer, CPosition playerPosition, CSolid, CInventory [], CName "You", CShoppingList shoppingList, (CIsInRoom [], COwnsCar playerCarPosition))
 
     flip mapM_ carComponents $ \(CCar carPosition) -> do
         when (carPosition /= playerCarPosition) $ do
@@ -50,19 +55,27 @@ initialize = do
 carDoorPosition :: Position -> Position
 carDoorPosition carPosition = carPosition + V2 2 4
 
-mkBorder :: System' ()
-mkBorder = do
-    let allPositions = [V2 x y | x <- [0..positionMaxX], y <- [0..positionMaxY]]
-    let edgePositions = filter (\(V2 x y) -> x == 0 || y == 0 || x == positionMaxX || y == positionMaxY) allPositions
-    flip mapM_ edgePositions $ \p -> newEntity (CSolid, CPosition p, dWall)
+mkBorder :: Room -> System' ()
+mkBorder (Room x y w h) = do
+    let borderX = x + w + 5
+    let allPositions = [V2 x y | x <- [0 .. borderX], y <- [0 .. positionMaxY]]
+    let edgePositions = filter (\(V2 x y) -> x == 0 || y == 0 || x == borderX || y == positionMaxY) allPositions
+    flip mapM_ edgePositions $ \p -> newEntity (CSolid, CPosition p, Drawable (charToGlyph '#') white)
 
 stepDuration = 0.6
 
 step :: Float -> System' Bool
 step dT = do
     actionsDirty <- handleActions
-    stepTime dT
+    indoorOutdoor
     return actionsDirty
+
+indoorOutdoor :: System' ()
+indoorOutdoor = do
+    (CMallRoom mallRoom) <- get global
+    cmap $ \(CPlayer, CPosition pos) -> if (containsPosition pos mallRoom)
+        then dPlayerIndoors
+        else dPlayerOutdoors
 
 handleActions :: System' Bool
 handleActions = do
@@ -75,8 +88,13 @@ handleAction :: Action -> System' ()
 handleAction (Move d) = cmapM (movePlayer d)
 handleAction _ = return ()
 
+whenGameIsRunning :: System' () -> System' ()
+whenGameIsRunning s = do
+    isRunning <- (/= Stopped) <$> get global
+    when isRunning s
+
 turn :: System' ()
-turn = do
+turn = whenGameIsRunning $ do
     cmapM $ \ (CPosition position, CBehaviour behaviour, CShoppingList toBuy, e) -> CBehaviour <$> case behaviour of 
         (Buy item []) -> return Deciding -- This should never happen
         currentBehaviour@(Buy item path@(nextStep : nextSteps)) -> do
@@ -121,15 +139,6 @@ pollAction = do
             set global $ CActions as 
             return $ Just a
 
-stepTime :: Float -> System' ()
-stepTime dT = do
-    (CTime t) <- get global
-    let newTime = t + dT
-    let stepDone = stepDuration <= newTime
-    if stepDone
-        then set global $ CTime $ newTime - stepDuration
-        else set global $ CTime newTime
-
 movePlayer :: Direction -> (CPlayer, CPosition, Entity) -> System' CPosition
 movePlayer d (_, (CPosition p), e) = move (dirToFun d) p e
 
@@ -141,10 +150,11 @@ dirToFun DirDown = down
 
 handleEvent :: SDL.EventPayload -> System' ()
 handleEvent e = do
-    whenKeyPressed SDL.ScancodeRight e  $ modify global $ appendAction $ Move DirRight
-    whenKeyPressed SDL.ScancodeLeft e   $ modify global $ appendAction $ Move DirLeft
-    whenKeyPressed SDL.ScancodeUp e     $ modify global $ appendAction $ Move DirUp
-    whenKeyPressed SDL.ScancodeDown e   $ modify global $ appendAction $ Move DirDown
+    whenGameIsRunning $ do
+        whenKeyPressed SDL.ScancodeRight e  $ modify global $ appendAction $ Move DirRight
+        whenKeyPressed SDL.ScancodeLeft e   $ modify global $ appendAction $ Move DirLeft
+        whenKeyPressed SDL.ScancodeUp e     $ modify global $ appendAction $ Move DirUp
+        whenKeyPressed SDL.ScancodeDown e   $ modify global $ appendAction $ Move DirDown
     whenKeyPressed SDL.ScancodeR e      $ do
         cmapM_ $ \(CPosition p, Entity e) -> destroyEntity (Entity e)
         initialize
@@ -176,13 +186,28 @@ enterCar playerEntity itemEntity = do
 
 pickupItem :: Entity -> Entity -> System' (Maybe Item)
 pickupItem activeEntity itemEntity = do
-    interaction activeEntity itemEntity $ \(CInventory _, CName name) (CItem i) -> do
-        modify activeEntity $ \(CInventory items) -> CInventory $ i : items
+    interaction activeEntity itemEntity $ \(CInventory currentInventory, CName name, CShoppingList sl) (CItem i) -> do
+        let newInventory = i : currentInventory
+        set activeEntity $ CInventory newInventory
         isPlayer <- exists activeEntity (Proxy :: Proxy CPlayer)
         when isPlayer $ do
             logTxt $ FGText name (V3 255 255 0) <> FGText " picked up " white <> FGText (show i) (V3 255 0 0)
+            let allItemsBought = null $ sl \\ newInventory
+            if allItemsBought
+                then logTxtS "You got everything you need. Go to your car now."
+                else if length newInventory >= (length sl) + shoppingListBuffer
+                    then looseFullInventory
+                    else return ()
         destroyEntity itemEntity
         return i
+
+looseFullInventory :: System' ()
+looseFullInventory = logTxtS "You bought way too much." >> loose
+
+loose :: System' ()
+loose = do
+    logTxtS "You loose. Press [r] to restart."
+    set global Stopped
 
 enterRooms :: Entity -> Entity -> System' ()
 enterRooms playerEntity itemEntity = interaction_ playerEntity itemEntity $
@@ -209,3 +234,9 @@ main = do
 
 logTxt :: TerminalText -> System' ()
 logTxt txt = modify global $ \(CLog txts) -> CLog $ txt : txts
+
+welcomeMessage :: System' ()
+welcomeMessage = do
+    logTxtS $ "Welcome to mallRL!"
+    logTxtS $ "Your goal is to buy every item from your shopping list."
+    logTxtS $ "Use WASD or arrow keys to move and have fun shopping."

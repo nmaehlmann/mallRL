@@ -3,10 +3,10 @@ import Colors
 import CDrawable
 import Linear
 
-data Item = Pizza | Seaweed | Bananas | Fishsticks | Nachos | Apples| Donut
+data Item = Pizza | Seaweed | Bananas | Fishsticks | Nachos | Apples| Donut | Chocolate
     deriving (Eq, Show)
 
-allItems = [Pizza, Seaweed, Bananas, Fishsticks, Nachos, Apples, Donut]
+allItems = [Pizza, Seaweed, Bananas, Fishsticks, Nachos, Apples, Donut, Chocolate]
 
 lookupItemDrawable :: Item -> CDrawable
 lookupItemDrawable Pizza = dPizza
@@ -16,6 +16,7 @@ lookupItemDrawable Fishsticks = dFishsticks
 lookupItemDrawable Nachos = dNachos
 lookupItemDrawable Apples = dApples
 lookupItemDrawable Donut = dDonut
+lookupItemDrawable Chocolate = dChocoloate
 
 dPizza = DrawableBG pizzaGlyph pizzaFG pizzaBG
 pizzaGlyph = V2 15 4
@@ -51,3 +52,8 @@ dDonut = DrawableBG donutGlyph donutFG donutBG
 donutGlyph = V2 9 0
 donutFG = V3 255 102 178
 donutBG = V3 102 82 105
+
+dChocoloate = DrawableBG chocoloateGlyph chocoloateFG chocoloateBG
+chocoloateGlyph = V2 3 2
+chocoloateFG = black
+chocoloateBG = V3 137 72 72

@@ -20,6 +20,7 @@ import CDrawable
 import Item
 import World
 import TerminalText
+import Data.List
 
 logSize :: Int
 logSize = 5
@@ -76,15 +77,15 @@ drawInventoryContent tm =
         let shoppingListLen = length shoppingList
         let inventoryY = inventoryContentsY shoppingListLen
         let shoppingListPositions = [(V2 shoppingListContentsX y) | y <- [inventoryY ..]]
-        return $ applyToPairs (drawItem []) tm $ zip shoppingListPositions $ reverse inventory
+        return $ applyToPairs drawItemFullColor tm $ zip shoppingListPositions $ reverse inventory
 
 drawShoppingListContent :: TileImage -> System' TileImage
 drawShoppingListContent tm = 
     flip cfoldM tm $ \tm (CPlayer, CShoppingList shoppingList, CInventory inventory) -> do
-        let inInventory = filter (\i -> elem i inventory) shoppingList
-        let notInInventory = filter (\i -> not (elem i inventory)) shoppingList
+        let notInInventory = shoppingList \\ inventory
+        let inInventory = shoppingList \\ notInInventory
         let shoppingListPositions = [(V2 shoppingListContentsX y) | y <- [shoppingListContentsY ..]]
-        return $ applyToPairs (drawItem inventory) tm $ zip shoppingListPositions $ notInInventory ++ inInventory
+        return $ applyToPairs drawItem tm $ zip shoppingListPositions $ (zip notInInventory (repeat False))  ++  (zip inInventory (repeat True))
 
 rect :: Position -> Int -> Int -> [Position]
 rect (V2 sx sy) w h = [(V2 x y) | x <- [sx..(sx + w - 1)], y <- [sy .. (sy + h - 1)]]
@@ -92,13 +93,12 @@ rect (V2 sx sy) w h = [(V2 x y) | x <- [sx..(sx + w - 1)], y <- [sy .. (sy + h -
 fill :: Color -> [Position] -> [(Position, Tile)]
 fill c ps = map (\p -> (p, Tile filledGlyph c c)) ps
 
-drawItem :: [Item] -> Position -> Item -> TileImage -> TileImage
-drawItem inventory pos item = if elem item inventory 
-    then drawItemInInventory pos item
-    else drawItemNotInInventory pos item
+drawItem :: Position -> (Item, Bool) -> TileImage -> TileImage
+drawItem pos (item, True) = drawItemInInventory pos item
+drawItem pos (item, False) = drawItemFullColor pos item
 
-drawItemNotInInventory :: Position -> Item -> TileImage -> TileImage
-drawItemNotInInventory pos item = drawText pos txt
+drawItemFullColor :: Position -> Item -> TileImage -> TileImage
+drawItemFullColor pos item = drawText pos txt
     where 
         txt = Icon itemDrawable <> toText (" " ++ itemTxt)
         itemTxt = rightPad (sidebarSize - 4 - 2) ' ' $ show item

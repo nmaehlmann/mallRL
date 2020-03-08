@@ -39,6 +39,9 @@ positionValid (V2 x y) = x < positionMaxX && y < positionMaxY && x >= 0 && y >= 
 itemPositions :: Item -> System' [Position]
 itemPositions item = flip cfold [] $ \l (CItem i, CPosition p) -> if item == i then p:l else l
 
+isItemSoldOut :: Item -> System' Bool
+isItemSoldOut i = null <$> itemPositions i
+
 isItemOnPosition :: Item -> Position -> System' Bool
 isItemOnPosition item pos = do
     entities <- entitiesAtPosition pos

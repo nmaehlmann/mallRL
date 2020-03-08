@@ -23,6 +23,9 @@ import Room
 positionMaxX = 100
 positionMaxY = 64
 
+shoppingListBuffer :: Int
+shoppingListBuffer = 5
+
 newtype CPosition = CPosition Position 
     deriving (Show, Eq, Ord)
     deriving (Ix) via Position
@@ -83,8 +86,18 @@ instance Component CCar where type Storage CCar = Apecs.Map CCar
 newtype COwnsCar = COwnsCar Position
 instance Component COwnsCar where type Storage COwnsCar = Apecs.Map COwnsCar
 
+newtype CMallRoom = CMallRoom Room
+instance Component CMallRoom where type Storage CMallRoom = Apecs.Global CMallRoom
+instance Semigroup CMallRoom where m1 <> m2 = m1 -- :(
+instance Monoid CMallRoom where mempty = CMallRoom $ Room 0 0 positionMaxX positionMaxY
+
+data CGameState = Running Int | Stopped deriving Eq
+instance Component CGameState where type Storage CGameState = Apecs.Global CGameState
+instance Semigroup CGameState where m1 <> m2 = m1 -- :(
+instance Monoid CGameState where mempty = Running 0
+
 makeWorld "World" [''CPosition, ''CPlayer, ''CDrawable, ''CSolid, ''CItem, ''CInventory
-    , ''CTime, ''CActions, ''CBehaviour, ''CLog, ''CName, ''CShoppingList, ''CIsInRoom, ''CCar, ''COwnsCar]
+    , ''CTime, ''CActions, ''CBehaviour, ''CLog, ''CName, ''CShoppingList, ''CIsInRoom, ''CCar, ''COwnsCar, ''CMallRoom, ''CGameState]
 
 destroyEntity :: Entity -> System' () 
 destroyEntity e = destroy e (Proxy :: Proxy ((CPosition, CPlayer, CDrawable, CSolid, CItem, CInventory), (CBehaviour, CName, CIsInRoom, CCar, COwnsCar)))

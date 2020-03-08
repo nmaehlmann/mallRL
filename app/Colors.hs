@@ -13,15 +13,20 @@ groundGlyph2 = V2 4 0
 groundFGColor = V3 255 178 102
 groundBGColor = V3 255 140 103
 
+dMallRoof  =  DrawableBG (charToGlyph '/') black white
+
 dGround = DrawableBG groundGlyph1 groundFGColor groundBGColor
 
 dLineV = Drawable (V2 3 11) white
 dLineH = Drawable (V2 4 12) white
 dCross = Drawable (V2 5 12) white
 
-dPlayer = Drawable playerGlyph playerColor
+dPlayerIndoors = Drawable playerGlyph playerColorIndoors
+dPlayerOutdoors = Drawable playerGlyph playerColorOutdoors
 playerGlyph = charToGlyph '@'
-playerColor = black
+playerColorIndoors = black
+playerColorOutdoors = white
+
 
 npcColor = grey
 

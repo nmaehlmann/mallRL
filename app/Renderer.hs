@@ -31,13 +31,14 @@ setAsRenderTarget r Nothing = SDL.rendererRenderTarget r $= Nothing
 setAsRenderTarget r (Just (Texture t _)) = SDL.rendererRenderTarget r $= Just t
 
 time :: IO t -> IO t
-time a = do
-    start <- getCPUTime
-    v <- a
-    end   <- getCPUTime
-    let diff = (fromIntegral (end - start)) / (10^12)
+time a = a 
+    -- do
+    -- start <- getCPUTime
+    -- v <- a
+    -- end   <- getCPUTime
+    -- let diff = (fromIntegral (end - start)) / (10^12)
     -- printf "Computation time: %0.3f sec\n" (diff :: Double)
-    return v
+    -- return v
 
 loadTexture :: SDL.Renderer -> FilePath -> IO Texture
 loadTexture r filePath = do
@@ -152,9 +153,6 @@ play initialWorld draw handle step = do
     SDL.destroyRenderer renderer
     SDL.destroyWindow window
     SDL.quit
-
-testMap :: TileImage
-testMap = TileImage $ Array.listArray arrayBounds $ cycle [Tile filledGlyph groundBGColor groundBGColor]
 
 emptyMap :: TileImage
 emptyMap = TileImage $ Array.listArray arrayBounds $ cycle [tileEmpty]
