@@ -26,7 +26,7 @@ logSize :: Int
 logSize = 5
 
 sidebarSize :: Int
-sidebarSize = 17
+sidebarSize = 18
 
 drawLog :: TileImage -> System' TileImage
 drawLog (TileImage arr) = do

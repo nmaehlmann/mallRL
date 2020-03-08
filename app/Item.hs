@@ -3,10 +3,10 @@ import Colors
 import CDrawable
 import Linear
 
-data Item = Pizza | Seaweed | Bananas | Fishsticks | Nachos | Apples| Donut | Chocolate
+data Item = Pizza | Seaweed | Bananas | Fishsticks | Nachos | Apples| Donut | Chocolate | Oranges | Grapes | Lightbulb | Mustard | Ketchup
     deriving (Eq, Show)
 
-allItems = [Pizza, Seaweed, Bananas, Fishsticks, Nachos, Apples, Donut, Chocolate]
+allItems = [Pizza, Seaweed, Bananas, Fishsticks, Nachos, Apples, Donut, Chocolate, Oranges, Grapes, Lightbulb, Mustard, Ketchup]
 
 lookupItemDrawable :: Item -> CDrawable
 lookupItemDrawable Pizza = dPizza
@@ -17,6 +17,11 @@ lookupItemDrawable Nachos = dNachos
 lookupItemDrawable Apples = dApples
 lookupItemDrawable Donut = dDonut
 lookupItemDrawable Chocolate = dChocoloate
+lookupItemDrawable Oranges = dOranges
+lookupItemDrawable Grapes = dGrapes
+lookupItemDrawable Lightbulb = dLightbulb
+lookupItemDrawable Mustard = dMustard
+lookupItemDrawable Ketchup = dKetchup
 
 dPizza = DrawableBG pizzaGlyph pizzaFG pizzaBG
 pizzaGlyph = V2 15 4
@@ -57,3 +62,28 @@ dChocoloate = DrawableBG chocoloateGlyph chocoloateFG chocoloateBG
 chocoloateGlyph = V2 3 2
 chocoloateFG = black
 chocoloateBG = V3 137 72 72
+
+dOranges = DrawableBG orangesGlyph orangesFG orangesBG
+orangesGlyph = V2 10 0
+orangesFG = V3 51 153 255
+orangesBG = V3 255 178 102
+
+dGrapes = DrawableBG grapesGlyph grapesFG grapesBG
+grapesGlyph = V2 5 0
+grapesFG = V3 255 102 255
+grapesBG = V3 70 140 0
+
+dLightbulb = DrawableBG lightbulbGlyph lightbulbFG lightbulbBG
+lightbulbGlyph = V2 15 0
+lightbulbFG = V3 255 255 51
+lightbulbBG = V3 191 191 191
+
+dMustard = DrawableBG mustardGlyph mustardFG mustardBG
+mustardGlyph = V2 0 1
+mustardFG = V3 255 255 51
+mustardBG = V3 191 191 191
+
+dKetchup = DrawableBG ketchupGlyph ketchupFG ketchupBG
+ketchupGlyph = V2 0 1
+ketchupFG = V3 255 0 0
+ketchupBG = V3 191 191 191
