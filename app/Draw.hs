@@ -10,28 +10,36 @@ import World
 import UI
 import Room
 import Colors
+import Data.Array
 
-draw :: System' TileImage
-draw = flip cfoldM emptyMap $ \tm (CPlayer, CPosition playerPosition, CIsInRoom roomsToDraw) -> do
-    (CMallRoom mallRoom) <- get global
-    let cDraw = if containsPosition playerPosition mallRoom then cDrawIndoors playerPosition roomsToDraw else cDrawOutdoors playerPosition mallRoom
-    cfold cDraw emptyMap >>= drawUI
-
-cDrawOutdoors :: Position -> Room -> TileImage -> (CPosition, CDrawable) -> TileImage
-cDrawOutdoors playerPosition mallRoom tm drawInfo@(CPosition pos, _) =
+cDrawOutdoors :: DrawingFunction -> Position -> Room -> [(Position, Tile)] -> (CPosition, CDrawable) -> [(Position, Tile)]
+cDrawOutdoors drawFun playerPosition mallRoom tm drawInfo@(CPosition pos, _) =
     if containsPosition pos (shrink1 mallRoom) 
-        then cDrawWithCam playerPosition tm (CPosition pos, dMallRoof)
-        else cDrawWithCam playerPosition tm drawInfo
+        then cDrawWithCam drawFun playerPosition tm (CPosition pos, dMallRoof)
+        else cDrawWithCam drawFun playerPosition tm drawInfo
 
-cDrawIndoors :: Position -> [Room] -> TileImage -> (CPosition, CDrawable) -> TileImage
-cDrawIndoors playerPosition roomsToDraw tm drawInfo@(CPosition pos, _)  = 
+cDrawIndoors :: DrawingFunction -> Position -> [Room] -> [(Position, Tile)] -> (CPosition, CDrawable) -> [(Position, Tile)]
+cDrawIndoors drawFun playerPosition roomsToDraw tm drawInfo@(CPosition pos, _)  = 
     if elem True $ map (containsPosition pos) roomsToDraw 
-        then cDrawWithCam playerPosition tm drawInfo
+        then cDrawWithCam drawFun playerPosition tm drawInfo
         else tm
 
-cDrawWithCam :: Position -> TileImage -> (CPosition, CDrawable) -> TileImage
-cDrawWithCam (V2 playerX playerY) tm (CPosition pos, drawable) = drawDrawable tm (pos + camera, drawable)
+cDrawWithCam :: DrawingFunction -> Position -> [(Position, Tile)] -> (CPosition, CDrawable) -> [(Position, Tile)]
+cDrawWithCam drawFun (V2 playerX playerY) tm (CPosition pos, drawable) = drawDrawable drawFun tm (pos + camera, drawable)
     where
         camera = V2 xOff yOff
         xOff = (div (mapWidthInt - sidebarSize) 2) - playerX
         yOff = (div (mapHeightInt - logSize) 2) - playerY
+
+draw :: System' TileImage
+draw = do
+    (CMallRoom mallRoom) <- get global
+    let drawLayer drawFun tileImage = flip cfoldM emptyMap $ \tm (CPlayer, CPosition playerPosition, CIsInRoom roomsToDraw) -> do
+            let cDraw = if containsPosition playerPosition mallRoom 
+                then cDrawIndoors drawFun playerPosition roomsToDraw 
+                else cDrawOutdoors drawFun playerPosition mallRoom
+            newAssocs <- cfold cDraw []
+            let (TileImage emptyArr) = tileImage
+            (return (TileImage (emptyArr // (reverse newAssocs)))) :: System' TileImage
+    bg <- drawLayer drawBG emptyMap
+    drawLayer (drawFG bg) bg >>= drawUI

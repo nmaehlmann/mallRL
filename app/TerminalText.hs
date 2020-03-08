@@ -4,6 +4,7 @@ import CDrawable
 import Position
 import Colors
 import Linear
+import Data.Array
 
 data TerminalText = FGText String Color | BGText String Color Color | ConcatText TerminalText TerminalText | Icon CDrawable
 instance Semigroup TerminalText where
@@ -22,4 +23,9 @@ textToDrawables (ConcatText t1 t2) = textToDrawables t1 ++ textToDrawables t2
 textToDrawables (Icon d) = [d]
 
 drawText :: Position -> TerminalText -> TileImage -> TileImage
-drawText (V2 x y) txt tm = foldl drawDrawable tm $ zip [V2 xs y | xs <- [x..]] (textToDrawables txt)
+drawText (V2 x y) txt (TileImage tm) = 
+    let positionedDrawables = zip [V2 xs y | xs <- [x..]] (textToDrawables txt)
+        bgAssocs = foldl (drawDrawable drawBG) [] positionedDrawables 
+        bgImage = TileImage $ tm // bgAssocs
+        allAssocs = foldl (drawDrawable (drawFG bgImage)) bgAssocs positionedDrawables
+    in  TileImage $ tm // allAssocs
