@@ -93,8 +93,13 @@ whenGameIsRunning s = do
     isRunning <- (/= Stopped) <$> get global
     when isRunning s
 
+increaseTurnCounter :: CGameState -> CGameState 
+increaseTurnCounter (Running x) = Running $ x + 1
+increaseTurnCounter Stopped = Stopped
+
 turn :: System' ()
 turn = whenGameIsRunning $ do
+    modify global increaseTurnCounter
     cmapM $ \ (CPosition position, CBehaviour behaviour, CShoppingList toBuy, e) -> CBehaviour <$> case behaviour of 
         (Buy item []) -> return Deciding -- This should never happen
         currentBehaviour@(Buy item path@(nextStep : nextSteps)) -> do
@@ -177,12 +182,23 @@ moveTo source target movingEntity = do
 
 enterCar :: Entity -> Entity -> System' ()
 enterCar playerEntity itemEntity = do
-    interaction_ playerEntity itemEntity $ \(CPlayer, COwnsCar ownedCarPosition) (CCar carPosition, CPosition touchedPosition) -> do
+    interaction_ playerEntity itemEntity $ \(CPlayer, COwnsCar ownedCarPosition, CInventory inventory, CShoppingList sl) (CCar carPosition, CPosition touchedPosition) -> do
         if ownedCarPosition /= carPosition then
             logTxtS "This is not your car."
         else if touchedPosition == carDoorPosition carPosition
-            then logTxtS "First shop before you enter."
+            then do
+                let allItemsBought = null $ sl \\ inventory
+                if allItemsBought then win else logTxtS "Some items from your shoppinglist are still missing."
             else logTxtS "Go to the driver's door."
+
+win :: System' ()
+win = do
+    gameState <- get global
+    let turns = case gameState of
+            (Running t) -> show t
+            _ -> "?"
+    logTxtS $ "You won after " ++ turns ++ " turns! Press [r] to restart."
+    set global Stopped
 
 pickupItem :: Entity -> Entity -> System' (Maybe Item)
 pickupItem activeEntity itemEntity = do
