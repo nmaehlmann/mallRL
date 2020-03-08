@@ -21,6 +21,14 @@ import Data.List
 import Control.Monad.Random
 import UI
 
+main :: IO ()
+main = do
+    w <- initWorld
+    runWith w $ do
+        initialize
+        wNew <- ask
+        lift $ play wNew draw handleEvent step
+
 initialize :: System' ()
 initialize = do
     names <- lift $ lines <$> readFile "resources/names.txt"
@@ -48,6 +56,37 @@ initialize = do
     modify global $ appendAction Redisplay
     return ()
 
+handleEvent :: SDL.EventPayload -> System' ()
+handleEvent e = do
+    whenGameIsRunning $ do
+        -- arrow keys
+        whenKeyPressed SDL.ScancodeRight e  $ modify global $ appendAction $ Move DirRight
+        whenKeyPressed SDL.ScancodeLeft e   $ modify global $ appendAction $ Move DirLeft
+        whenKeyPressed SDL.ScancodeUp e     $ modify global $ appendAction $ Move DirUp
+        whenKeyPressed SDL.ScancodeDown e   $ modify global $ appendAction $ Move DirDown
+
+        -- wasd
+        whenKeyPressed SDL.ScancodeD e  $ modify global $ appendAction $ Move DirRight
+        whenKeyPressed SDL.ScancodeA e   $ modify global $ appendAction $ Move DirLeft
+        whenKeyPressed SDL.ScancodeW e     $ modify global $ appendAction $ Move DirUp
+        whenKeyPressed SDL.ScancodeS e   $ modify global $ appendAction $ Move DirDown
+    
+    -- reset
+    whenKeyPressed SDL.ScancodeR e      $ do
+        cmapM_ $ \(CPosition p, Entity e) -> destroyEntity (Entity e)
+        initialize
+
+step :: Float -> System' Bool
+step _ = do
+    action <- pollAction
+    case action of
+        (Just a) -> do
+            handleAction a
+            turn
+            updatePlayerColor
+            return True
+        Nothing -> return False
+
 randomShoppingList :: RandomGen g => Int -> Rand g [Item]
 randomShoppingList 0 = return []
 randomShoppingList n = do 
@@ -71,17 +110,6 @@ updatePlayerColor = do
     cmap $ \(CPlayer, CPosition pos) -> if (containsPosition pos mallRoom)
         then dPlayerIndoors
         else dPlayerOutdoors
-
-step :: Float -> System' Bool
-step _ = do
-    action <- pollAction
-    case action of
-        (Just a) -> do
-            handleAction a
-            turn
-            updatePlayerColor
-            return True
-        Nothing -> return False
 
 handleAction :: Action -> System' ()
 handleAction (Move d) = cmapM (movePlayer d)
@@ -157,26 +185,6 @@ dirToFun DirLeft = left
 dirToFun DirRight = right
 dirToFun DirUp = up
 dirToFun DirDown = down
-
-handleEvent :: SDL.EventPayload -> System' ()
-handleEvent e = do
-    whenGameIsRunning $ do
-        -- arrow keys
-        whenKeyPressed SDL.ScancodeRight e  $ modify global $ appendAction $ Move DirRight
-        whenKeyPressed SDL.ScancodeLeft e   $ modify global $ appendAction $ Move DirLeft
-        whenKeyPressed SDL.ScancodeUp e     $ modify global $ appendAction $ Move DirUp
-        whenKeyPressed SDL.ScancodeDown e   $ modify global $ appendAction $ Move DirDown
-
-        -- wasd
-        whenKeyPressed SDL.ScancodeD e  $ modify global $ appendAction $ Move DirRight
-        whenKeyPressed SDL.ScancodeA e   $ modify global $ appendAction $ Move DirLeft
-        whenKeyPressed SDL.ScancodeW e     $ modify global $ appendAction $ Move DirUp
-        whenKeyPressed SDL.ScancodeS e   $ modify global $ appendAction $ Move DirDown
-    
-    -- reset
-    whenKeyPressed SDL.ScancodeR e      $ do
-        cmapM_ $ \(CPosition p, Entity e) -> destroyEntity (Entity e)
-        initialize
 
 appendAction :: Action -> CActions -> CActions
 appendAction a (CActions as) = CActions $ as ++ [a]
@@ -283,13 +291,6 @@ isKeyPressed scancode (SDL.KeyboardEvent e) = pressed && justPressed && rightKey
         rightKey = scancode == (SDL.keysymScancode (SDL.keyboardEventKeysym e ))
 isKeyPressed _ _ = False
 
-main :: IO ()
-main = do
-    w <- initWorld
-    runWith w $ do
-        initialize
-        wNew <- ask
-        lift $ play wNew draw handleEvent step
 
 logTxt :: TerminalText -> System' ()
 logTxt txt = modify global $ \(CLog txts) -> CLog $ txt : txts
