@@ -8,9 +8,9 @@ import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.Graph.AStar
 import Control.Monad
+import Room
 
 pathToItem :: Position -> Item -> System' (Maybe [Position])
--- pathToItem p i = return Nothing
 pathToItem currentPosition item = do
     itemPositions <- flip cfold [] $ \l (CItem i, CPosition p) -> if item == i 
             then p:l
@@ -18,8 +18,11 @@ pathToItem currentPosition item = do
     case itemPositions of
         [] -> return Nothing
         (goal : _) -> do
+            (CMallRoom mallRoom) <- get global
+            let bothPositionsInMall = containsPosition goal mallRoom && containsPosition currentPosition mallRoom
+            let neighboursFun = if bothPositionsInMall then neighboursInMall mallRoom else neighbours
             aStarM 
-                (neighbours goal)
+                (neighboursFun goal)
                 distanceBetweenNeighbours
                 (heuristicDistanceToGoal goal)
                 (\p -> return (p == goal))
@@ -54,6 +57,12 @@ isItem e item = do
         (CItem i) <- get e
         return $ i == item
     else return False
+
+neighboursInMall :: Room -> Position -> Position -> System' (HashSet Position) 
+neighboursInMall mallRoom goal p = do
+    ps <- mapM (filterFreePosition goal) $ filter (\pos -> containsPosition pos mallRoom) $ filter positionValid $ [left, right, up, down] <*> [p]
+    return $ HashSet.unions ps
+
 
 neighbours :: Position -> Position -> System' (HashSet Position) 
 neighbours goal p = do

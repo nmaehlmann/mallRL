@@ -65,8 +65,8 @@ chocoloateBG = V3 137 72 72
 
 dOranges = DrawableBG orangesGlyph orangesFG orangesBG
 orangesGlyph = V2 10 0
-orangesFG = V3 51 153 255
-orangesBG = V3 255 178 102
+orangesFG = V3 255 178 102
+orangesBG = V3 51 153 255
 
 dGrapes = DrawableBG grapesGlyph grapesFG grapesBG
 grapesGlyph = V2 5 0

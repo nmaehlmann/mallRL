@@ -143,7 +143,7 @@ play initialWorld draw handle step = do
             SDL.present renderer
 
             -- sleep
-            -- Control.Concurrent.threadDelay 33333
+            Control.Concurrent.threadDelay  16000 -- 33333
 
             --repeat
             unless quit $ loop worldAfterStepping nextImage
