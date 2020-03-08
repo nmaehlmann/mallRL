@@ -1,13 +1,3 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DerivingVia                #-}
 module Main where
 import Apecs hiding (Map, Set)
 import Linear
@@ -111,7 +101,6 @@ turn = whenGameIsRunning $ do
     stepAI
     checkForSoldOutItems
     modify global increaseTurnCounter
-
 
 stepAI :: System' ()
 stepAI = cmapM $ \ (CPosition position, CBehaviour behaviour, CShoppingList toBuy, e) -> CBehaviour <$> 

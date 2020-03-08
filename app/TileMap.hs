@@ -1,7 +1,6 @@
 module TileMap where
 import Foreign.C.Types
 import Position
-import qualified Data.Array as Array
 import Linear
 
 mapWidth, mapHeight :: CInt
