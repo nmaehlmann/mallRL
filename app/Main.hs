@@ -28,10 +28,14 @@ import Data.Maybe
 import RandomUtility
 import Room
 import Data.List
+import Control.Monad.Random
+import UI
 
 initialize :: System' ()
 initialize = do
+    names <- lift $ lines <$> readFile "resources/names.txt"
     set global $ Running 0
+    set global $ CLog []
     welcomeMessage
     (mallRoom, carComponents) <- initializeMap
     set global $ CMallRoom mallRoom
@@ -39,18 +43,27 @@ initialize = do
 
     (CCar playerCarPosition) <- evalRandom $ pickRandom carComponents
     let playerPosition = right $ carDoorPosition playerCarPosition
-    let shoppingList = [Pizza, Seaweed, Bananas, Fishsticks, Bananas, Bananas]
-    newEntity (CPlayer, CPosition playerPosition, CSolid, CInventory [], CName "You", CShoppingList shoppingList, (CIsInRoom [], COwnsCar playerCarPosition))
+    playerShoppingList <- evalRandom $ sort <$> randomShoppingList 10
+    newEntity (CPlayer, CPosition playerPosition, CSolid, CInventory [], CName "You", CShoppingList playerShoppingList, (CIsInRoom [], COwnsCar playerCarPosition))
 
     flip mapM_ carComponents $ \(CCar carPosition) -> do
         when (carPosition /= playerCarPosition) $ do
-            let position = right $ carDoorPosition carPosition
-            newEntity (CBehaviour Deciding, CPosition position, Drawable (charToGlyph 'B') npcColor, CSolid, CInventory [], CShoppingList shoppingList, CName "Kunibert", COwnsCar carPosition)
+            npcName <- evalRandom $ pickRandom names
+            let npcGlyph = charToGlyph $ head npcName
+            npcShoppingList <- evalRandom $ randomShoppingList 10
+            let npcPosition = right $ carDoorPosition carPosition
+            newEntity (CBehaviour Deciding, CPosition npcPosition, Drawable npcGlyph npcColor, CSolid, CInventory [], CShoppingList npcShoppingList, CName npcName, COwnsCar carPosition)
             return ()
             
     modify global $ appendAction Redisplay
     return ()
 
+randomShoppingList :: RandomGen g => Int -> Rand g [Item]
+randomShoppingList 0 = return []
+randomShoppingList n = do 
+    i <- pickRandom allItems
+    is <- randomShoppingList $ n - 1
+    return $ i : is
 
 carDoorPosition :: Position -> Position
 carDoorPosition carPosition = carPosition + V2 2 4
@@ -62,26 +75,22 @@ mkBorder (Room x y w h) = do
     let edgePositions = filter (\(V2 x y) -> x == 0 || y == 0 || x == borderX || y == positionMaxY) allPositions
     flip mapM_ edgePositions $ \p -> newEntity (CSolid, CPosition p, Drawable (charToGlyph '#') white)
 
-stepDuration = 0.6
-
-step :: Float -> System' Bool
-step dT = do
-    actionsDirty <- handleActions
-    indoorOutdoor
-    return actionsDirty
-
-indoorOutdoor :: System' ()
-indoorOutdoor = do
+updatePlayerColor :: System' ()
+updatePlayerColor = do
     (CMallRoom mallRoom) <- get global
     cmap $ \(CPlayer, CPosition pos) -> if (containsPosition pos mallRoom)
         then dPlayerIndoors
         else dPlayerOutdoors
 
-handleActions :: System' Bool
-handleActions = do
+step :: Float -> System' Bool
+step _ = do
     action <- pollAction
     case action of
-        (Just a) -> handleAction a >> turn >> return True
+        (Just a) -> do
+            handleAction a
+            turn
+            updatePlayerColor
+            return True
         Nothing -> return False
 
 handleAction :: Action -> System' ()
@@ -99,8 +108,14 @@ increaseTurnCounter Stopped = Stopped
 
 turn :: System' ()
 turn = whenGameIsRunning $ do
+    stepAI
+    checkForSoldOutItems
     modify global increaseTurnCounter
-    cmapM $ \ (CPosition position, CBehaviour behaviour, CShoppingList toBuy, e) -> CBehaviour <$> case behaviour of 
+
+
+stepAI :: System' ()
+stepAI = cmapM $ \ (CPosition position, CBehaviour behaviour, CShoppingList toBuy, e) -> CBehaviour <$> 
+    case behaviour of 
         (Buy item []) -> return Deciding -- This should never happen
         currentBehaviour@(Buy item path@(nextStep : nextSteps)) -> do
             let targetPosition = last path
@@ -133,6 +148,7 @@ turn = whenGameIsRunning $ do
                     (Just path) -> Buy itemToBuy path
                     Nothing -> Deciding
 
+logTxtS :: String -> System' ()
 logTxtS s = logTxt $ FGText s white
 
 pollAction :: System' (Maybe Action)
@@ -156,10 +172,19 @@ dirToFun DirDown = down
 handleEvent :: SDL.EventPayload -> System' ()
 handleEvent e = do
     whenGameIsRunning $ do
+        -- arrow keys
         whenKeyPressed SDL.ScancodeRight e  $ modify global $ appendAction $ Move DirRight
         whenKeyPressed SDL.ScancodeLeft e   $ modify global $ appendAction $ Move DirLeft
         whenKeyPressed SDL.ScancodeUp e     $ modify global $ appendAction $ Move DirUp
         whenKeyPressed SDL.ScancodeDown e   $ modify global $ appendAction $ Move DirDown
+
+        -- wasd
+        whenKeyPressed SDL.ScancodeD e  $ modify global $ appendAction $ Move DirRight
+        whenKeyPressed SDL.ScancodeA e   $ modify global $ appendAction $ Move DirLeft
+        whenKeyPressed SDL.ScancodeW e     $ modify global $ appendAction $ Move DirUp
+        whenKeyPressed SDL.ScancodeS e   $ modify global $ appendAction $ Move DirDown
+    
+    -- reset
     whenKeyPressed SDL.ScancodeR e      $ do
         cmapM_ $ \(CPosition p, Entity e) -> destroyEntity (Entity e)
         initialize
@@ -175,21 +200,36 @@ moveTo source target movingEntity = do
     entitiesAtTarget <- entitiesAtPosition target
     pickedupItems <- catMaybes <$> mapM (pickupItem movingEntity) entitiesAtTarget
     mapM (enterCar movingEntity) entitiesAtTarget
+    mapM (bumpIntoNPC movingEntity) entitiesAtTarget
     targetBlocked <- containsSolidEntity entitiesAtTarget
     when (not targetBlocked) $ mapM_ (enterRooms movingEntity) entitiesAtTarget
     let newPos = CPosition $ if targetBlocked then source else target
     return (newPos, pickedupItems)
 
+phrases :: [String]
+phrases = 
+    [ "Nice to meet you."
+    , "I love shopping for groceries."
+    , "Watch your step."
+    ]
+
+bumpIntoNPC :: Entity -> Entity -> System' ()
+bumpIntoNPC playerEntity npcEntity = do
+    interaction_ playerEntity npcEntity $ \(CPlayer) (CBehaviour b, CName n) -> do
+        phrase <- evalRandom $ pickRandom phrases
+        logTxt $ FGText (n ++ ": ") (V3 255 255 0) <> whiteTerminalText phrase
+
+
 enterCar :: Entity -> Entity -> System' ()
 enterCar playerEntity itemEntity = do
     interaction_ playerEntity itemEntity $ \(CPlayer, COwnsCar ownedCarPosition, CInventory inventory, CShoppingList sl) (CCar carPosition, CPosition touchedPosition) -> do
-        if ownedCarPosition /= carPosition then
-            logTxtS "This is not your car."
-        else if touchedPosition == carDoorPosition carPosition
-            then do
-                let allItemsBought = null $ sl \\ inventory
-                if allItemsBought then win else logTxtS "Some items from your shoppinglist are still missing."
-            else logTxtS "Go to the driver's door."
+        let allItemsBought = null $ sl \\ inventory
+        when allItemsBought $
+            if ownedCarPosition /= carPosition 
+            then logTxtS "This is not your car."
+            else if touchedPosition == carDoorPosition carPosition
+                then win
+                else logTxtS "Go to the driver's door."
 
 win :: System' ()
 win = do
@@ -197,8 +237,17 @@ win = do
     let turns = case gameState of
             (Running t) -> show t
             _ -> "?"
-    logTxtS $ "You won after " ++ turns ++ " turns! Press [r] to restart."
+    let text = "You won after " ++ turns ++ " turns! Press [r] to restart."
+    logTxt $ FGText text (V3 100 255 100)
     set global Stopped
+
+checkForSoldOutItems :: System' ()
+checkForSoldOutItems = cmapM_ $ \(CPlayer, CShoppingList sl, CInventory inventory) -> do
+    let itemsNotBought = nub $ sl \\ inventory
+    soldOutItemsNotBought <- filterM isItemSoldOut itemsNotBought
+    case soldOutItemsNotBought of
+        (i : _) -> looseItemSoldOut i
+        _ ->  return ()
 
 pickupItem :: Entity -> Entity -> System' (Maybe Item)
 pickupItem activeEntity itemEntity = do
@@ -207,7 +256,7 @@ pickupItem activeEntity itemEntity = do
         set activeEntity $ CInventory newInventory
         isPlayer <- exists activeEntity (Proxy :: Proxy CPlayer)
         when isPlayer $ do
-            logTxt $ FGText name (V3 255 255 0) <> FGText " picked up " white <> FGText (show i) (V3 255 0 0)
+            logTxt $ whiteTerminalText "You picked up " <> itemTerminalText i
             let allItemsBought = null $ sl \\ newInventory
             if allItemsBought
                 then logTxtS "You got everything you need. Go to your car now."
@@ -218,11 +267,16 @@ pickupItem activeEntity itemEntity = do
         return i
 
 looseFullInventory :: System' ()
-looseFullInventory = logTxtS "You bought way too much." >> loose
+looseFullInventory = logTxtS "You bought way too much!" >> loose
+
+looseItemSoldOut :: Item -> System' ()
+looseItemSoldOut i = do
+    logTxt $ whiteTerminalText "The article " <> itemTerminalText i <> whiteTerminalText " is sold out!"
+    loose
 
 loose :: System' ()
 loose = do
-    logTxtS "You loose. Press [r] to restart."
+    logTxt $ FGText "You loose. Press [r] to restart." (V3 255 0 0)
     set global Stopped
 
 enterRooms :: Entity -> Entity -> System' ()
@@ -253,6 +307,6 @@ logTxt txt = modify global $ \(CLog txts) -> CLog $ txt : txts
 
 welcomeMessage :: System' ()
 welcomeMessage = do
-    logTxtS $ "Welcome to mallRL!"
-    logTxtS $ "Your goal is to buy every item from your shopping list."
-    logTxtS $ "Use WASD or arrow keys to move and have fun shopping."
+    logTxt $ FGText "Welcome to mallRL, a 7drl game by Nikolas Maehlmann." (V3 100 100 255)
+    logTxtS $ "You are [@]. Use arrow keys or [w,a,s,d] to move. [r] to restart."
+    logTxtS $ "Have fun shopping!"

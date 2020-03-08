@@ -53,16 +53,13 @@ drawShoppingListBG (TileImage arr) = return $ TileImage $ arr // bg
 
 drawShoppingListHeader :: TileImage -> System' TileImage
 drawShoppingListHeader tm = return $ drawText (V2 shoppingListContentsX shoppingListHeaderY) shoppingListHeader tm
-    where 
-        shoppingListHeader = FGText "Shopping List" black -- <> heart <> heart <> heart
-        heart = Icon (Drawable heartGlyph black)
+    where shoppingListHeader = FGText "Shopping List" black
 
 drawInventoryHeader :: TileImage -> System' TileImage
 drawInventoryHeader tm = do
     flip cfoldM tm $ \tm (CPlayer, CInventory items, CShoppingList shoppingList) -> do
         let shoppingListLen = length shoppingList
-        let shoppingCart = FGText "#" black
-        let inventoryHeader = FGText "Inventory" black
+        let inventoryHeader = FGText ("Cart") black
         return $ drawText (V2 shoppingListContentsX (inventoryHeaderY shoppingListLen)) inventoryHeader tm
 
 shoppingListHeaderY = 2
@@ -97,6 +94,21 @@ drawItem :: Position -> (Item, Bool) -> TileImage -> TileImage
 drawItem pos (item, True) = drawItemInInventory pos item
 drawItem pos (item, False) = drawItemFullColor pos item
 
+whiteTerminalText :: String -> TerminalText
+whiteTerminalText s = FGText s white
+
+itemTerminalText :: Item -> TerminalText
+itemTerminalText i = itemTextStyle i $ show i
+
+itemTextStyle :: Item -> String -> TerminalText
+itemTextStyle item t = txt
+    where
+        txt = Icon itemDrawable <> toText (" " ++ t)
+        itemDrawable = lookupItemDrawable item
+        toText t = case itemDrawable of
+            (Drawable _ fg) -> FGText t fg
+            (DrawableBG _ fg bg) -> BGText t fg bg
+
 drawItemFullColor :: Position -> Item -> TileImage -> TileImage
 drawItemFullColor pos item = drawText pos txt
     where 
@@ -125,10 +137,11 @@ rightPad :: Int -> a -> [a] -> [a]
 rightPad m x xs = take m $ xs ++ repeat x
 
 drawUI :: TileImage -> System' TileImage
-drawUI tm = drawLog tm 
-    >>= drawSidebarBG 
+drawUI tm = 
+    drawSidebarBG tm
     >>= drawShoppingListBG 
     >>= drawShoppingListHeader 
     >>= drawShoppingListContent 
     >>= drawInventoryHeader 
     >>= drawInventoryContent
+    >>= drawLog

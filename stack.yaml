@@ -28,8 +28,6 @@ setup-info:
           url: "C:/Users/Nikolas/Downloads/ghc-8.6.5-x86_64-unknown-mingw32.tar.xz"
 
 extra-deps:
-- git: https://github.com/haskell-game/sdl2-image.git
-  commit: 382395c763b473032721c71921b5c9241142178f
 - astar-0.3.0.0
 
 flags:

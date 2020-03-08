@@ -45,9 +45,7 @@ executables:
 
     dependencies:
     - mall
-    # - gloss
     - sdl2
-    - sdl2-image
     - array
     - apecs
     - linear

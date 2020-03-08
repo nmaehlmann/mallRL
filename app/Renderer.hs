@@ -9,7 +9,6 @@ import SDL (($=))
 import qualified SDL
 import Data.Array ((!))
 import qualified Data.Array as Array
-import System.CPUTime
 import Position
 import Apecs hiding (($=))
 import Control.Concurrent
@@ -29,16 +28,6 @@ createBlank r size access = Texture <$> SDL.createTexture r SDL.RGBA8888 access 
 setAsRenderTarget :: SDL.Renderer -> Maybe Texture -> IO ()
 setAsRenderTarget r Nothing = SDL.rendererRenderTarget r $= Nothing
 setAsRenderTarget r (Just (Texture t _)) = SDL.rendererRenderTarget r $= Just t
-
-time :: IO t -> IO t
-time a = a 
-    -- do
-    -- start <- getCPUTime
-    -- v <- a
-    -- end   <- getCPUTime
-    -- let diff = (fromIntegral (end - start)) / (10^12)
-    -- printf "Computation time: %0.3f sec\n" (diff :: Double)
-    -- return v
 
 loadTexture :: SDL.Renderer -> FilePath -> IO Texture
 loadTexture r filePath = do
@@ -97,7 +86,7 @@ play initialWorld draw handle step = do
     SDL.HintRenderScaleQuality $= SDL.ScaleLinear
     renderQuality <- SDL.get SDL.HintRenderScaleQuality
     when (renderQuality /= SDL.ScaleLinear) $  putStrLn "Warning: Linear texture filtering not enabled!"
-    window <- SDL.createWindow "Mall Game" SDL.defaultWindow {SDL.windowInitialSize = V2 screenWidth screenHeight}
+    window <- SDL.createWindow "mallRL" SDL.defaultWindow {SDL.windowInitialSize = V2 screenWidth screenHeight}
     SDL.showWindow window
 
     -- init and show renderer
@@ -105,7 +94,7 @@ play initialWorld draw handle step = do
     renderer <- SDL.createRenderer window (-1) rendererConfig
 
     targetTexture <- createBlank renderer (V2 textureWidth textureHeight) SDL.TextureAccessTarget
-    spriteSheetTexture <- loadTexture renderer "font_custom.bmp"
+    spriteSheetTexture <- loadTexture renderer "resources/font_custom.bmp"
 
     let loop world previousImage = do
 
@@ -114,13 +103,11 @@ play initialWorld draw handle step = do
             let eventPayloads = map SDL.eventPayload events
             let quit = elem SDL.QuitEvent $ eventPayloads
             let handle' w evt = runWith w $ handle evt >> ask
-            -- putStrLn "handle events"
-            worldAfterEvents <- time $ foldM handle' world eventPayloads
+            worldAfterEvents <- foldM handle' world eventPayloads
 
             -- step world
             let t = 0.1
-            -- putStrLn "step"
-            (worldAfterStepping, rerenderNecessary) <- time $ runWith worldAfterEvents $ do
+            (worldAfterStepping, rerenderNecessary) <- runWith worldAfterEvents $ do
                 rerenderNecessary <- step t
                 worldAfterStepping <- ask
                 return (worldAfterStepping, rerenderNecessary)
@@ -128,9 +115,9 @@ play initialWorld draw handle step = do
             nextImage <- if rerenderNecessary
                 then do
                     -- render map to texture
-                    tileImage <- time $ runWith worldAfterStepping draw
+                    tileImage <- runWith worldAfterStepping draw
                     setAsRenderTarget renderer (Just targetTexture)
-                    time $ renderTileMap renderer spriteSheetTexture previousImage tileImage
+                    renderTileMap renderer spriteSheetTexture previousImage tileImage
                     return tileImage
                 else return previousImage
 

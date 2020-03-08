@@ -4,7 +4,7 @@ import CDrawable
 import Linear
 
 data Item = Pizza | Seaweed | Bananas | Fishsticks | Nachos | Apples| Donut | Chocolate | Oranges | Grapes | Lightbulb | Mustard | Ketchup
-    deriving (Eq, Show)
+    deriving (Eq, Show, Ord)
 
 allItems = [Pizza, Seaweed, Bananas, Fishsticks, Nachos, Apples, Donut, Chocolate, Oranges, Grapes, Lightbulb, Mustard, Ketchup]
 

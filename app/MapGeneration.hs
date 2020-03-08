@@ -10,7 +10,6 @@ import Data.List
 import Room
 import Car
 import RandomUtility
-import Debug.Trace
 import CDrawable
 
 data ShelfType = ShelfHor | ShelfVer | ShelfSquare
@@ -82,8 +81,6 @@ pickDoor ps = do
 
 getRoomsForPosition :: [Room] -> Position -> [Room]
 getRoomsForPosition rs p = filter (containsPosition p) rs
-
-
 
 initializeWall :: [Position] -> Wall -> System' ()
 initializeWall doors (Wall x y x2 y2) = do
