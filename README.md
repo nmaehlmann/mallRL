@@ -2,7 +2,7 @@
 
 mallRL is a grocery shopping roguelike developed for the 7drl game jam.
 
-![a gif showing mallrl](/screenshots/indoor.png)
+![a gif showing mallrl](https://github.com/nmaehlmann/mallRL/blob/master/screenshots/mallrl.gif)
 
 As the game was developed under strict time constraints the code is neither well organized nor high quality, but might still be interesting for people looking to develop a game in haskell.
 
